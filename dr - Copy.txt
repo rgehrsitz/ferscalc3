@@ -1,0 +1,249 @@
+# FERS Retirement Calculator - Comprehensive Configuration
+# This configuration includes all parameters with annotated defaults
+# to eliminate hard-coded values throughout the application
+
+personal_details:
+  person_a:
+    name: "Rob"
+    birth_date: "1965-02-25T00:00:00Z"
+    hire_date: "1987-06-22T00:00:00Z"  # Service Computation Date (SCD Leave)
+    current_salary: "190779.00"
+    high_3_salary: "186572.00"  # Corrected from documents
+    tsp_balance_traditional: "2102000.00"
+    tsp_balance_roth: "0.00"
+    tsp_contribution_percent: "0.128" 
+    ss_benefit_62: "2925.00"  # Monthly benefit at age 62
+    ss_benefit_fra: "4184.00"  # Monthly benefit at FRA (67)
+    ss_benefit_70: "5203.00"  # Monthly benefit at age 70
+    fehb_premium_per_pay_period: "216.12"  # $687.00 per pay period (will be multiplied by 26 pay periods)
+    survivor_benefit_election_percent: "0.00"
+    sick_leave_hours: "1872.0"  # Sick leave hours that count toward pension service credit
+    
+  # Individual TSP allocation (optional - uses default if not specified)
+  # Person A uses L2030 fund which is aggressive growth
+    tsp_allocation:
+      c_fund: "0.312"  
+      s_fund: "0.078"   
+      i_fund: "0.210"  
+      f_fund: "0.055"  
+      g_fund: "0.345"  
+    
+    # TSP Lifecycle Fund (optional - overrides tsp_allocation if specified)
+    # If specified, allocation will change over time based on age
+    # NOTE: For Monte Carlo simulations, use manual tsp_allocation instead
+    # to ensure proper market variability in results
+    # tsp_lifecycle_fund:
+    #   fund_name: "L2030"  # Options: "L2030", "L2035", "L2040", "L Income"
+    #   # Allocation data is automatically loaded from CSV files in data/tsp-returns/
+    
+  person_b:
+    name: "Dawn"
+    birth_date: "1963-07-31T00:00:00Z"
+    hire_date: "1995-07-11T00:00:00Z"  # Service Computation Date (SCD Leave)
+    current_salary: "176620.00"
+    high_3_salary: "164000.00"  # Corrected from documents
+    tsp_balance_traditional: "1525175.90"
+    tsp_balance_roth: "0.00"
+    tsp_contribution_percent: "0.153"  
+    ss_benefit_62: "2527.00"  # Monthly benefit at age 62
+    ss_benefit_fra: "3826.00"  # Monthly benefit at FRA (67)
+    ss_benefit_70: "4860.00"  # Monthly benefit at age 70
+    fehb_premium_monthly: "0.00"  # Person B has FSA-HC instead of FEHB ($105.76 per pay period)
+    survivor_benefit_election_percent: "0.00"
+    sick_leave_hours: "1057.5"  # Sick leave hours that count toward pension service credit
+    
+  # Person B in L-Income
+    tsp_allocation:
+      c_fund: "0.1403" 
+      s_fund: "0.0351"
+      i_fund: "0.0945"  
+      f_fund: "0.0548"  
+      g_fund: "0.6753"  
+    
+    # TSP Lifecycle Fund (optional - overrides tsp_allocation if specified)
+    # If specified, allocation will change over time based on age
+    # NOTE: For Monte Carlo simulations, use manual tsp_allocation instead
+    # to ensure proper market variability in results
+    # tsp_lifecycle_fund:
+    #   fund_name: "L Income"  # Options: "L2030", "L2035", "L2040", "L Income"
+    #   # Allocation data is automatically loaded from CSV files in data/tsp-returns/
+
+global_assumptions:
+  inflation_rate: "0.025"
+  fehb_premium_inflation: "0.07"
+  tsp_return_pre_retirement: "0.075"  # Conservative estimate for L 2030 funds
+  tsp_return_post_retirement: "0.04"
+  cola_general_rate: "0.025"
+  projection_years: 30
+  current_location:
+    state: "PA"
+    county: "Bucks"
+    municipality: "Upper Makefield Township"
+
+  # Monte Carlo Simulation Settings
+  monte_carlo_settings:
+    # Variability parameters for statistical generation (standard deviations)
+    tsp_return_variability: "0.15"      # 15% std dev - typical for stock market variability
+    inflation_variability: "0.02"       # 2% std dev - based on CPI historical variation
+    cola_variability: "0.02"            # 2% std dev - Social Security COLA variation
+    fehb_variability: "0.05"            # 5% std dev - health insurance premium increases
+
+    # Income validation limits
+    max_reasonable_income: "50000000"    # $50M annual cap to prevent calculation errors
+
+    # Default TSP asset allocation (used when individual allocation not specified)
+    # Based on typical balanced portfolio for federal employees near retirement
+    default_tsp_allocation:
+      c_fund: "0.60"  # 60% - C Fund (Large Cap Stock Index, tracks S&P 500)
+      s_fund: "0.20"  # 20% - S Fund (Small Cap Stock Index, tracks Russell 2000)
+      i_fund: "0.10"  # 10% - I Fund (International Stock Index, tracks MSCI World ex-US)
+      f_fund: "0.10"  # 10% - F Fund (Fixed Income Index, tracks Bloomberg US Aggregate)
+      g_fund: "0.00"  # 0% - G Fund (Government Securities, guaranteed return)
+
+  # Federal Rules and Limits (updated annually by IRS/SSA)
+  federal_rules:
+    # Social Security taxation thresholds - 2025 values
+    # Source: IRS Publication 915 and Social Security Administration
+    social_security_tax_thresholds:
+      married_filing_jointly:
+        threshold_1: "32000"  # 50% of SS benefits may be taxable above this income
+        threshold_2: "44000"  # 85% of SS benefits may be taxable above this income
+      single:
+        threshold_1: "25000"  # 50% of SS benefits may be taxable above this income  
+        threshold_2: "34000"  # 85% of SS benefits may be taxable above this income
+
+    # Social Security benefit calculation rules
+    # Source: Social Security Administration actuarial tables
+    social_security_rules:
+      early_retirement_reduction:
+        first_36_months_rate: "0.0055556"    # 5/9 of 1% per month (6.67% annually)
+        additional_months_rate: "0.0041667"  # 5/12 of 1% per month (5% annually)
+      delayed_retirement_credit: "0.0066667" # 2/3 of 1% per month (8% annually)
+
+    # FERS program rules
+    # Source: OPM FERS Handbook and current regulations
+    fers_rules:
+      tsp_matching_rate: "0.05"        # 5% maximum agency matching contribution
+      tsp_matching_threshold: "0.05"   # 5% employee contribution required for full match
+
+    # Federal income tax configuration - 2025 values
+    # Source: IRS Revenue Procedure 2024-XX (updated annually)
+    federal_tax_config:
+      standard_deduction_mfj: "30000"                    # 2025 MFJ standard deduction
+      additional_standard_deduction_65_plus: "1550"      # Additional deduction per person 65+
+      tax_brackets_2025:
+        - min: "0"
+          max: "23200"
+          rate: "0.10"
+        - min: "23201"
+          max: "94300"
+          rate: "0.12"
+        - min: "94301"
+          max: "201050"
+          rate: "0.22"
+        - min: "201051"
+          max: "383900"
+          rate: "0.24"
+        - min: "383901"
+          max: "487450"
+          rate: "0.32"
+        - min: "487451"
+          max: "731200"
+          rate: "0.35"
+        - min: "731201"
+          max: "999999999"
+          rate: "0.37"
+
+    # State and local tax configuration
+    # Source: Pennsylvania Department of Revenue and local tax authorities
+    state_local_tax_config:
+      pennsylvania_rate: "0.0307"           # 3.07% flat state tax rate
+      upper_makefield_eit_rate: "0.01"      # 1% EIT on earned income only
+
+    # FICA tax configuration - 2025 values
+    # Source: Social Security Administration and IRS
+    fica_tax_config:
+      year: 2025
+      social_security_wage_base: "176100"   # 2025 SS wage base
+      social_security_rate: "0.062"         # 6.2% Social Security tax
+      medicare_rate: "0.0145"               # 1.45% Medicare tax
+      additional_medicare_rate: "0.009"     # 0.9% additional Medicare tax
+      high_income_threshold_mfj: "250000"   # MFJ threshold for additional Medicare tax
+
+    # Medicare Part B premium configuration - 2025 values
+    # Source: Centers for Medicare & Medicaid Services (CMS)
+    medicare_config:
+      base_premium_2025: "185.00"           # 2025 base Part B premium
+      irmaa_thresholds:
+        - income_threshold_single: "103000"  # First IRMAA tier (single)
+          income_threshold_joint: "206000"   # First IRMAA tier (MFJ)
+          monthly_surcharge: "69.90"         # Additional monthly premium
+        - income_threshold_single: "129000"  # Second IRMAA tier (single)
+          income_threshold_joint: "258000"   # Second IRMAA tier (MFJ)
+          monthly_surcharge: "174.70"        # Additional monthly premium
+        - income_threshold_single: "161000"  # Third IRMAA tier (single)
+          income_threshold_joint: "322000"   # Third IRMAA tier (MFJ)
+          monthly_surcharge: "279.50"        # Additional monthly premium
+        - income_threshold_single: "193000"  # Fourth IRMAA tier (single)
+          income_threshold_joint: "386000"   # Fourth IRMAA tier (MFJ)
+          monthly_surcharge: "384.30"        # Additional monthly premium
+        - income_threshold_single: "500000"  # Fifth IRMAA tier (single)
+          income_threshold_joint: "750000"   # Fifth IRMAA tier (MFJ)
+          monthly_surcharge: "489.10"        # Additional monthly premium
+
+    # FEHB (Federal Employees Health Benefits) configuration
+    # Source: OPM FEHB Program and agency policies
+    fehb_config:
+      pay_periods_per_year: 26               # Bi-weekly pay periods
+      retirement_calculation_method: "same_as_active"  # Premiums same as active duty
+      retirement_premium_multiplier: "1.0"   # No change in retirement (1.0 = same as active)
+
+  # TSP Statistical Models - calculated from historical data
+  # Source: TSP.gov historical performance data, updated annually
+  tsp_statistical_models:
+    c_fund:
+      mean: "0.1125"                    # 11.25% - historical mean return (1988-2024)
+      standard_dev: "0.1744"           # 17.44% - historical standard deviation
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+    
+    s_fund:
+      mean: "0.1117"                    # 11.17% - historical mean return (1988-2024)
+      standard_dev: "0.1933"           # 19.33% - historical standard deviation
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+    
+    i_fund:
+      mean: "0.0634"                    # 6.34% - historical mean return (1988-2024)
+      standard_dev: "0.1863"           # 18.63% - historical standard deviation
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+    
+    f_fund:
+      mean: "0.0532"                    # 5.32% - historical mean return (1988-2024)
+      standard_dev: "0.0565"           # 5.65% - historical standard deviation
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+    
+    g_fund:
+      mean: "0.0493"                    # 4.93% - historical mean return (1988-2024)
+      standard_dev: "0.0165"           # 1.65% - historical standard deviation (very stable)
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+
+scenarios:
+  - name: "Rob Retires Feb 2026"
+    person_a:
+      employee_name: "Rob"
+      retirement_date: "2026-02-28T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.04" 
+    person_b:
+      employee_name: "Dawn"
+      retirement_date: "2025-08-30T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.04" 
+      
+      

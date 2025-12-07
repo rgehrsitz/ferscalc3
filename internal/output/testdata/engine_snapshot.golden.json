@@ -1,0 +1,19 @@
+{
+  "baseline_net_income": "175708.01",
+  "scenarios": [
+    {
+      "name": "Both Retire in 2025",
+      "first_year_net": "237725.95",
+      "year5": "197721.17",
+      "year10": "208809.05",
+      "tsp_longevity": 25
+    },
+    {
+      "name": "PersonA Retires at 62 - Feb 2027",
+      "first_year_net": "180474.11",
+      "year5": "206123.87",
+      "year10": "218264.78",
+      "tsp_longevity": 25
+    }
+  ]
+}

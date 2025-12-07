@@ -1,0 +1,200 @@
+=================================================================================
+DETAILED FERS RETIREMENT INCOME ANALYSIS
+=================================================================================
+
+KEY ASSUMPTIONS:
+• General COLA (FERS pension & SS): 2.5% annually
+• FEHB premium inflation: 4.0% annually
+• TSP growth pre-retirement: 7.0% annually
+• TSP growth post-retirement: 5.0% annually
+• Social Security wage base indexing: ~5% annually (2025 est: $168,600)
+• Tax brackets: 2025 levels held constant (no inflation indexing)
+
+CURRENT NET INCOME BREAKDOWN (Pre-Retirement)
+=============================================
+Combined Gross Salary: $367399.00
+Combined Net Income:  $100000.00
+Monthly Net Income:   $8333.33
+
+=================================================================================
+DETAILED INCOME VALIDATION: WORKING vs RETIREMENT
+=================================================================================
+
+SCENARIO 1: A
+=============
+
+COMPONENT                                   WORKING      RETIREMENT      DIFFERENCE
+--------------------------------------------------------------------------------
+INCOME SOURCES:
+  Salary (PersonA + PersonB)             $367399.00           $0.00     $-367399.00
+  FERS Pension                                $0.00           $0.00           $0.00
+  TSP Withdrawals                             $0.00           $0.00           $0.00
+  Social Security                             $0.00           $0.00           $0.00
+  FERS Supplement                             $0.00           $0.00           $0.00
+--------------------------------------------------------------------------------
+TOTAL GROSS INCOME                       $367399.00           $0.00     $-367399.00
+
+DEDUCTIONS & TAXES:
+  Federal Tax                             $67060.18           $0.00      $-67060.18
+  State Tax                               $11279.15           $0.00      $-11279.15
+  Local Tax                                $3673.99           $0.00       $-3673.99
+  FICA Tax                                $16837.08           $0.00      $-16837.08
+  TSP Contributions                       $69812.52           $0.00      $-69812.52
+  FEHB Premium                            $12700.74           $0.00      $-12700.74
+  Medicare Premium                            $0.00           $0.00           $0.00
+--------------------------------------------------------------------------------
+TOTAL DEDUCTIONS                         $181363.66           $0.00     $-181363.66
+
+================================================================================
+NET TAKE-HOME INCOME                     $100000.00       $95000.00       $-5000.00
+
+KEY INSIGHTS:
+• Working income is reduced by $69812.52 in TSP contributions
+• Working income is reduced by $16837.08 in FICA taxes
+• Retirement adds $0.00 in pension income
+• Retirement adds $0.00 in TSP withdrawals
+• Retirement adds $0.00 in Social Security
+
+Net Effect: $-5000.00 (-5.00%)
+
+
+SCENARIO 2: B
+=============
+
+COMPONENT                                   WORKING      RETIREMENT      DIFFERENCE
+--------------------------------------------------------------------------------
+INCOME SOURCES:
+  Salary (PersonA + PersonB)             $367399.00           $0.00     $-367399.00
+  FERS Pension                                $0.00           $0.00           $0.00
+  TSP Withdrawals                             $0.00           $0.00           $0.00
+  Social Security                             $0.00           $0.00           $0.00
+  FERS Supplement                             $0.00           $0.00           $0.00
+--------------------------------------------------------------------------------
+TOTAL GROSS INCOME                       $367399.00           $0.00     $-367399.00
+
+DEDUCTIONS & TAXES:
+  Federal Tax                             $67060.18           $0.00      $-67060.18
+  State Tax                               $11279.15           $0.00      $-11279.15
+  Local Tax                                $3673.99           $0.00       $-3673.99
+  FICA Tax                                $16837.08           $0.00      $-16837.08
+  TSP Contributions                       $69812.52           $0.00      $-69812.52
+  FEHB Premium                            $12700.74           $0.00      $-12700.74
+  Medicare Premium                            $0.00           $0.00           $0.00
+--------------------------------------------------------------------------------
+TOTAL DEDUCTIONS                         $181363.66           $0.00     $-181363.66
+
+================================================================================
+NET TAKE-HOME INCOME                     $100000.00      $105000.00        $5000.00
+
+KEY INSIGHTS:
+• Working income is reduced by $69812.52 in TSP contributions
+• Working income is reduced by $16837.08 in FICA taxes
+• Retirement adds $0.00 in pension income
+• Retirement adds $0.00 in TSP withdrawals
+• Retirement adds $0.00 in Social Security
+
+Net Effect: $5000.00 (5.00%)
+
+SCENARIO 1: A
+==================================================
+FIRST RETIREMENT YEAR (2025) INCOME BREAKDOWN:
+(Note: Amounts shown are current-year cash received - may be partial year)
+----------------------------------------
+INCOME SOURCES:
+  PersonA Salary:        $0.00
+  PersonB Salary:          $0.00
+  PersonA FERS Pension:  $0.00
+  PersonB FERS Pension:    $0.00
+  PersonA TSP Withdrawal: $0.00
+  PersonB TSP Withdrawal:   $0.00
+  PersonA Social Security: $0.00
+  PersonB Social Security:   $0.00
+  PersonA FERS SRS:       $0.00
+  PersonB FERS SRS:         $0.00
+  TOTAL GROSS INCOME:      $0.00
+
+DEDUCTIONS & TAXES:
+  Federal Tax:            $0.00
+  State Tax:              $0.00
+  Local Tax:              $0.00
+  FICA Tax:               $0.00
+  TSP Contributions:      $0.00
+  FEHB Premium:           $0.00
+  Medicare Premium:       $0.00
+  TOTAL DEDUCTIONS:       $0.00
+
+NET INCOME COMPARISON:
+----------------------
+  Current Net Income:     $100000.00
+  Retirement Net Income:  $95000.00
+  CHANGE: $-5000.00 (-5.00%)
+  Monthly Change: $-416.67
+RETIREMENT STATUS:
+  Is Retired:             true
+  Medicare Eligible:      false
+  RMD Year:               false
+  PersonA Age:           0
+  PersonB Age:             0
+
+LONG-TERM PROJECTION:
+---------------------
+  Year 5 Net Income:       $96000.00
+  Year 10 Net Income:      $97000.00
+  TSP Longevity:           25 years
+  Total Lifetime Income:   $1500000.00
+
+
+SCENARIO 2: B
+==================================================
+FIRST RETIREMENT YEAR (2025) INCOME BREAKDOWN:
+(Note: Amounts shown are current-year cash received - may be partial year)
+----------------------------------------
+INCOME SOURCES:
+  PersonA Salary:        $0.00
+  PersonB Salary:          $0.00
+  PersonA FERS Pension:  $0.00
+  PersonB FERS Pension:    $0.00
+  PersonA TSP Withdrawal: $0.00
+  PersonB TSP Withdrawal:   $0.00
+  PersonA Social Security: $0.00
+  PersonB Social Security:   $0.00
+  PersonA FERS SRS:       $0.00
+  PersonB FERS SRS:         $0.00
+  TOTAL GROSS INCOME:      $0.00
+
+DEDUCTIONS & TAXES:
+  Federal Tax:            $0.00
+  State Tax:              $0.00
+  Local Tax:              $0.00
+  FICA Tax:               $0.00
+  TSP Contributions:      $0.00
+  FEHB Premium:           $0.00
+  Medicare Premium:       $0.00
+  TOTAL DEDUCTIONS:       $0.00
+
+NET INCOME COMPARISON:
+----------------------
+  Current Net Income:     $100000.00
+  Retirement Net Income:  $105000.00
+  CHANGE: +$5000.00 (+5.00%)
+  Monthly Change: +$416.67
+RETIREMENT STATUS:
+  Is Retired:             true
+  Medicare Eligible:      false
+  RMD Year:               false
+  PersonA Age:           0
+  PersonB Age:             0
+
+LONG-TERM PROJECTION:
+---------------------
+  Year 5 Net Income:       $106000.00
+  Year 10 Net Income:      $107000.00
+  TSP Longevity:           30 years
+  Total Lifetime Income:   $1600000.00
+
+
+SUMMARY & RECOMMENDATIONS
+=========================
+Best scenario: B
+Take-Home Income Change: $5000.00 (5.00%)
+Monthly Change: $416.67

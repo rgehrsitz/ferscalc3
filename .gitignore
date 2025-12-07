@@ -1,0 +1,49 @@
+/bin/
+/build/
+/dist/
+/out/
+/target/
+
+# Go build/test artifacts
+*.test
+*.prof
+coverage.*
+*.out
+
+# Editor/IDE clutter
+.DS_Store
+*.swp
+*.iml
+.idea/
+.vscode/
+*.code-workspace
+
+# Node / frontend dependencies
+node_modules/
+
+# Generated reports and exports
+/reports/
+/reports/**
+*.report.html
+*.report.json
+*.report.csv
+*_report.html
+*_report.json
+*_report.csv
+*_report.tsv
+*_comparison.csv
+*.sweep.html
+*.sweep.json
+*.sweep.csv
+test/integration/*.csv
+test/integration/*.json
+test/integration/*.html
+test/integration/*.console
+internal/output/retirement_report_*.csv
+internal/output/retirement_report_*.json
+
+# OS binaries produced by go build
+*.exe
+*.dll
+*.so
+*.dylib

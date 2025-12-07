@@ -1,0 +1,80 @@
+personal_details:
+  person_a:
+    name: "Person A"
+    birth_date: "1965-02-25T00:00:00Z"
+    hire_date: "1987-06-22T00:00:00Z"  # Service Computation Date (SCD Leave)
+    employment_type: "federal"
+    current_salary: "190779.00"  # Neutralized name
+    high_3_salary: "190000.00"  # Corrected from documents
+    tsp_balance_traditional: "2055000"
+    tsp_balance_roth: "0.00"
+    tsp_contribution_percent: "0.128"  # $24,501.54 / $190,779.00
+    ss_benefit_62: "2795.00"  # Monthly benefit at age 62
+    ss_benefit_fra: "4012.00"  # Monthly benefit at FRA (67)
+    ss_benefit_70: "5000.00"  # Monthly benefit at age 70
+    fehb_premium_per_pay_period: "488.49"  # $488.49 per pay period (will be multiplied by 26 pay periods)
+    survivor_benefit_election_percent: "0.00"
+    sick_leave_hours: "1868.0"  # Sick leave hours that count toward pension service credit
+
+  person_b:
+    name: "Person B"
+    birth_date: "1963-07-31T00:00:00Z"
+    hire_date: "1995-07-11T00:00:00Z"  # Service Computation Date (SCD Leave)
+    employment_type: "federal"  # Set to "non-federal" for civilian spouses
+    current_salary: "176620.00"
+    high_3_salary: "164000.00"  # Corrected from documents
+    tsp_balance_traditional: "1525175.90"
+    tsp_balance_roth: "0.00"
+    tsp_contribution_percent: "0.153"  # $26,962.00 / $176,620.00
+    ss_benefit_62: "2527.00"  # Monthly benefit at age 62
+    ss_benefit_fra: "3826.00"  # Monthly benefit at FRA (67)
+    ss_benefit_70: "4860.00"  # Monthly benefit at age 70
+    fehb_premium_per_pay_period: "0.00"  # Person B has FSA-HC instead of FEHB ($105.76 per pay period)
+    survivor_benefit_election_percent: "0.00"
+    sick_leave_hours: "1057.5"  # Sick leave hours that count toward pension service credit
+    # Optional block for non-federal spouses or outside pensions
+    # fixed_retirement_income:
+    #   annual_amount: "24000"
+    #   cola_rate: "0.02"
+
+global_assumptions:
+  name: "Person A"
+  fehb_premium_inflation: "0.06"
+  tsp_return_pre_retirement: "0.07"  # Conservative estimate for L 2030 funds
+  tsp_return_post_retirement: "0.05"
+  cola_general_rate: "0.025"
+  projection_years: 25
+  current_location:
+    state: "PA"
+    county: "Bucks"
+    municipality: "Upper Makefield Township"
+
+scenarios:
+  - name: "Both Retire in 2025"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-27T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.01"  # 2.0% withdrawal rate (of current balance each year)
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-08-30T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.01"
+
+  - name: "PersonA Retires at 62 - Feb 2027"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2027-02-28T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.01"   # 2.0% withdrawal rate (of current balance each year)
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-08-30T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.01"   # 2.0% withdrawal rate (of current balance each year)
+

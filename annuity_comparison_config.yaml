@@ -1,0 +1,130 @@
+# FERS Retirement Calculator - Annuity Comparison Example
+# This configuration compares TSP 4% Rule withdrawals vs Fixed Immediate Annuity
+
+personal_details:
+  person_a:
+    first_name: "Rob"
+    last_name: "Gehrsitz"
+    birth_date: "1962-06-10T00:00:00Z"
+    hire_date: "1988-07-10T00:00:00Z"
+    current_salary: 85000
+    current_age: 62
+    high_3_salary: 83000
+    years_of_service: 36
+    tsp_balance_traditional: 1966168.86
+    tsp_balance_roth: 0
+    ss_benefit_62: 1400
+    ss_benefit_fra: 2000
+    ss_benefit_70: 2480
+    fehb_self_plus_one: true
+    fehb_self_only: false
+
+  person_b:
+    first_name: "Dawn"
+    last_name: "Gehrsitz"
+    birth_date: "1964-03-15T00:00:00Z"
+    hire_date: "1992-08-01T00:00:00Z"
+    current_salary: 72000
+    current_age: 60
+    high_3_salary: 70000
+    years_of_service: 32
+    tsp_balance_traditional: 1525175.90
+    tsp_balance_roth: 0
+    ss_benefit_62: 1200
+    ss_benefit_fra: 1700
+    ss_benefit_70: 2100
+    fehb_self_plus_one: false
+    fehb_self_only: false
+
+global_assumptions:
+  inflation_rate: 0.025
+  tsp_return_pre_retirement: 0.07
+  tsp_return_post_retirement: 0.05
+  cola_general_rate: 0.025
+  projection_years: 30
+  current_location:
+    state: "PA"
+    county: "Allegheny"
+
+scenarios:
+  # Scenario 1: Traditional 4% Rule - Keep money in TSP
+  - name: "TSP 4% Rule - Both Retire 2025"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+
+  # Scenario 2: Fixed Annuity - Convert 100% of TSP to annuity
+  - name: "Fixed Annuity 100% - Both Retire 2025"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "fixed_annuity"
+      annuity_premium_percent: "1.0"      # Convert 100% of TSP to annuity
+      annuity_payout_rate: "0.055"        # 5.5% annual payout
+      annuity_cola_rate: "0.0"            # No COLA (fixed payment)
+      annuity_survivor_percent: "1.0"     # 100% to survivor
+      annuity_guaranteed_years: 10        # 10 years certain
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "fixed_annuity"
+      annuity_premium_percent: "1.0"
+      annuity_payout_rate: "0.055"
+      annuity_cola_rate: "0.0"
+      annuity_survivor_percent: "1.0"
+      annuity_guaranteed_years: 10
+
+  # Scenario 3: Fixed Annuity with 2% COLA
+  - name: "Fixed Annuity with 2% COLA - Both Retire 2025"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "fixed_annuity"
+      annuity_premium_percent: "1.0"
+      annuity_payout_rate: "0.050"        # Lower payout due to COLA rider
+      annuity_cola_rate: "0.02"           # 2% annual COLA
+      annuity_survivor_percent: "1.0"
+      annuity_guaranteed_years: 10
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "fixed_annuity"
+      annuity_premium_percent: "1.0"
+      annuity_payout_rate: "0.050"
+      annuity_cola_rate: "0.02"
+      annuity_survivor_percent: "1.0"
+      annuity_guaranteed_years: 10
+
+  # Scenario 4: Hybrid - 50% Annuity, 50% TSP 4% Rule
+  - name: "Hybrid 50/50 - Both Retire 2025"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "fixed_annuity"
+      annuity_premium_percent: "0.5"      # Convert only 50% to annuity
+      annuity_payout_rate: "0.055"
+      annuity_cola_rate: "0.0"
+      annuity_survivor_percent: "1.0"
+      annuity_guaranteed_years: 10
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "fixed_annuity"
+      annuity_premium_percent: "0.5"
+      annuity_payout_rate: "0.055"
+      annuity_cola_rate: "0.0"
+      annuity_survivor_percent: "1.0"
+      annuity_guaranteed_years: 10

@@ -1,0 +1,130 @@
+personal_details:
+  person_a:
+    name: "Person A"
+    birth_date: "1965-02-25T00:00:00Z"
+    hire_date: "1987-06-22T00:00:00Z"
+    employment_type: "federal"
+    current_salary: "190779.00"
+    high_3_salary: "190000.00"
+    tsp_balance_traditional: "1966168.86"
+    tsp_balance_roth: "0.00"
+    tsp_contribution_percent: "0.128"
+    ss_benefit_62: "2795.00"
+    ss_benefit_fra: "4012.00"
+    ss_benefit_70: "5000.00"
+    fehb_premium_per_pay_period: "488.49"
+    survivor_benefit_election_percent: "0.00"
+    sick_leave_hours: "1868.0"
+    tsp_allocation:
+      c_fund: "0.55"
+      s_fund: "0.25"
+      i_fund: "0.15"
+      f_fund: "0.05"
+      g_fund: "0.00"
+    
+  person_b:
+    name: "Person B"
+    birth_date: "1963-07-31T00:00:00Z"
+    hire_date: "1995-07-11T00:00:00Z"
+    employment_type: "federal"
+    current_salary: "176620.00"
+    high_3_salary: "164000.00"
+    tsp_balance_traditional: "1525175.90"
+    tsp_balance_roth: "0.00"
+    tsp_contribution_percent: "0.153"
+    ss_benefit_62: "2527.00"
+    ss_benefit_fra: "3826.00"
+    ss_benefit_70: "4860.00"
+    fehb_premium_per_pay_period: "0.00"
+    survivor_benefit_election_percent: "0.00"
+    sick_leave_hours: "1057.5"
+    tsp_allocation:
+      c_fund: "0.55"
+      s_fund: "0.25"
+      i_fund: "0.15"
+      f_fund: "0.05"
+      g_fund: "0.00"
+
+global_assumptions:
+  inflation_rate: "0.025"
+  fehb_premium_inflation: "0.04"
+  tsp_return_pre_retirement: "0.07"
+  tsp_return_post_retirement: "0.05"
+  cola_general_rate: "0.025"
+  projection_years: 25
+  current_location:
+    state: "PA"
+    county: "Bucks"
+    municipality: "Upper Makefield Township"
+
+  monte_carlo_settings:
+    tsp_return_variability: "0.15"
+    inflation_variability: "0.02"
+    cola_variability: "0.02"
+    fehb_variability: "0.05"
+    max_reasonable_income: "50000000"
+    default_tsp_allocation:
+      c_fund: "0.60"
+      s_fund: "0.20"
+      i_fund: "0.10"
+      f_fund: "0.10"
+      g_fund: "0.00"
+
+  federal_rules:
+    social_security_tax_thresholds:
+      married_filing_jointly:
+        threshold_1: "32000"
+        threshold_2: "44000"
+      single:
+        threshold_1: "25000"
+        threshold_2: "34000"
+    social_security_rules:
+      early_retirement_reduction:
+        first_36_months_rate: "0.0055556"
+        additional_months_rate: "0.0041667"
+      delayed_retirement_credit: "0.0066667"
+    fers_rules:
+      tsp_matching_rate: "0.05"
+      tsp_matching_threshold: "0.05"
+
+  tsp_statistical_models:
+    c_fund:
+      mean: "0.1125"
+      standard_dev: "0.1744"
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+    s_fund:
+      mean: "0.1117"
+      standard_dev: "0.1933"
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+    i_fund:
+      mean: "0.0634"
+      standard_dev: "0.1863"
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+    f_fund:
+      mean: "0.0532"
+      standard_dev: "0.0565"
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+    g_fund:
+      mean: "0.0493"
+      standard_dev: "0.0165"
+      data_source: "TSP.gov 1988-2024"
+      last_updated: "2025-01-01"
+
+scenarios:
+  - name: "Person A Early Retirement 2024, Person B Delayed SS"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2024-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "need_based"
+      tsp_withdrawal_target_monthly: 5000
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-08-30T00:00:00Z"
+      ss_start_age: 70
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.035"

@@ -1,0 +1,123 @@
+# Direct Comparison: F&G Annuity vs TSP 4% Rule
+# Based on "Dawn and Rob Gehrsitz illustration 2MM.pdf"
+# F&G Quote: $10,267/month on $2,000,000 = $123,204/year = 6.16% payout rate
+
+personal_details:
+  person_a:
+    first_name: "Rob"
+    last_name: "Gehrsitz"
+    birth_date: "1962-06-10T00:00:00Z"
+    hire_date: "1988-07-10T00:00:00Z"
+    current_salary: 85000
+    current_age: 62
+    high_3_salary: 83000
+    years_of_service: 36
+    tsp_balance_traditional: 2000000    # Using the $2M from F&G illustration
+    tsp_balance_roth: 0
+    ss_benefit_62: 1400
+    ss_benefit_fra: 2000
+    ss_benefit_70: 2480
+    fehb_self_plus_one: true
+    fehb_self_only: false
+
+  person_b:
+    first_name: "Dawn"
+    last_name: "Gehrsitz"
+    birth_date: "1964-03-15T00:00:00Z"
+    hire_date: "1992-08-01T00:00:00Z"
+    current_salary: 72000
+    current_age: 60
+    high_3_salary: 70000
+    years_of_service: 32
+    tsp_balance_traditional: 0          # Focusing on PersonA's $2M for direct comparison
+    tsp_balance_roth: 0
+    ss_benefit_62: 1200
+    ss_benefit_fra: 1700
+    ss_benefit_70: 2100
+    fehb_self_plus_one: false
+    fehb_self_only: false
+
+global_assumptions:
+  inflation_rate: 0.025
+  tsp_return_pre_retirement: 0.07
+  tsp_return_post_retirement: 0.055
+  cola_general_rate: 0.025
+  projection_years: 30
+  current_location:
+    state: "PA"
+    county: "Allegheny"
+
+scenarios:
+  # Scenario 1: Traditional TSP 4% Rule
+  - name: "TSP 3% Rule - $2M Account"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.03"         # 5% withdrawal rate
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+
+  # Scenario 1: Traditional TSP 4% Rule
+  - name: "TSP 4% Rule - $2M Account"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+
+  # Scenario 2: F&G Fixed Annuity (from actual quote)
+  # $10,267/month = $123,204/year on $2,000,000 = 6.16% payout rate
+  - name: "F&G Annuity - $10,267/month ($2M)"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "fixed_annuity"
+      annuity_premium_percent: "1.0"      # Convert all $2M to F&G annuity
+      annuity_payout_rate: "0.0616"       # 6.16% based on F&G quote
+      annuity_cola_rate: "0.0"            # No COLA (fixed payment)
+      annuity_survivor_percent: "1.0"     # Assuming 100% survivor benefit
+      annuity_guaranteed_years: 10        # Typical guarantee period
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+
+  # Scenario 3: TSP 5% Rule (for intermediate comparison)
+  - name: "TSP 5% Rule - $2M Account"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.05"         # 5% withdrawal rate
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+
+  # Scenario 4: TSP 6% Rule (closer to annuity payout)
+  - name: "TSP 6% Rule - $2M Account"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "variable_percentage"
+      tsp_withdrawal_rate: "0.06"         # 6% withdrawal rate
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"

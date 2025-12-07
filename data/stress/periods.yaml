@@ -1,0 +1,229 @@
+scenarios:
+  stagflation_1970s:
+    name: "1970s Stagflation"
+    description: "High inflation + weak equity returns following oil shocks"
+    repeat: true
+    years:
+      - year: 1973
+        label: "Oil Embargo"
+        tsp_returns:
+          C: "-0.147"
+          S: "-0.305"
+          I: "-0.178"
+          F: "0.080"
+          G: "0.050"
+        inflation: "0.061"
+        cola: "0.050"
+        fehb: "0.090"
+      - year: 1974
+        label: "Deep recession"
+        tsp_returns:
+          C: "-0.264"
+          S: "-0.195"
+          I: "-0.232"
+          F: "0.030"
+          G: "0.055"
+        inflation: "0.110"
+        cola: "0.080"
+        fehb: "0.110"
+      - year: 1975
+        label: "Stagflation persists"
+        tsp_returns:
+          C: "-0.004"
+          S: "-0.120"
+          I: "-0.080"
+          F: "0.070"
+          G: "0.060"
+        inflation: "0.092"
+        cola: "0.070"
+        fehb: "0.100"
+      - year: 1976
+        label: "Slow recovery"
+        tsp_returns:
+          C: "0.239"
+          S: "0.160"
+          I: "0.100"
+          F: "0.060"
+          G: "0.055"
+        inflation: "0.060"
+        cola: "0.060"
+        fehb: "0.080"
+
+  volcker_shock_1980s:
+    name: "1980s Volcker Shock"
+    description: "Extreme rate hikes crushing inflation"
+    repeat: false
+    years:
+      - year: 1980
+        label: "Rates surge"
+        tsp_returns:
+          C: "0.325"
+          S: "0.220"
+          I: "0.050"
+          F: "-0.020"
+          G: "0.110"
+        inflation: "0.137"
+        cola: "0.145"
+        fehb: "0.150"
+      - year: 1981
+        label: "Double-dip recession"
+        tsp_returns:
+          C: "-0.047"
+          S: "-0.080"
+          I: "-0.060"
+          F: "0.064"
+          G: "0.140"
+        inflation: "0.101"
+        cola: "0.111"
+        fehb: "0.130"
+      - year: 1982
+        label: "Rates peak"
+        tsp_returns:
+          C: "0.210"
+          S: "0.180"
+          I: "0.110"
+          F: "0.325"
+          G: "0.110"
+        inflation: "0.064"
+        cola: "0.087"
+        fehb: "0.110"
+
+  black_monday_1987:
+    name: "1987 Black Monday"
+    description: "Single-day 22% crash"
+    repeat: true
+    years:
+      - year: 1987
+        label: "Monday crash"
+        tsp_returns:
+          C: "0.052"
+          S: "0.019"
+          I: "-0.146"
+          F: "0.024"
+          G: "0.081"
+        inflation: "0.036"
+        cola: "0.038"
+        fehb: "0.070"
+
+  recession_1990_1991:
+    name: "1990-1991 Recession"
+    description: "S&L crisis + Gulf War"
+    repeat: true
+    years:
+      - year: 1990
+        label: "S&L shock"
+        tsp_returns:
+          C: "-0.035"
+          S: "-0.096"
+          I: "-0.236"
+          F: "0.097"
+          G: "0.084"
+        inflation: "0.060"
+        cola: "0.055"
+        fehb: "0.080"
+      - year: 1991
+        label: "Gulf War"
+        tsp_returns:
+          C: "0.305"
+          S: "0.448"
+          I: "0.127"
+          F: "0.071"
+          G: "0.075"
+        inflation: "0.031"
+        cola: "0.035"
+        fehb: "0.070"
+
+  dotcom_crash_2000s:
+    name: "2000-2002 Dot-Com Crash"
+    description: "NASDAQ down 49% over 30 months"
+    repeat: false
+    years:
+      - year: 2000
+        label: "Peak unwinds"
+        tsp_returns:
+          C: "-0.091"
+          S: "-0.095"
+          I: "-0.148"
+          F: "0.110"
+          G: "0.061"
+        inflation: "0.034"
+        cola: "0.035"
+        fehb: "0.080"
+      - year: 2001
+        label: "9/11 shock"
+        tsp_returns:
+          C: "-0.120"
+          S: "-0.090"
+          I: "-0.222"
+          F: "0.084"
+          G: "0.060"
+        inflation: "0.028"
+        cola: "0.026"
+        fehb: "0.090"
+      - year: 2002
+        label: "Final capitulation"
+        tsp_returns:
+          C: "-0.223"
+          S: "-0.185"
+          I: "-0.156"
+          F: "0.101"
+          G: "0.053"
+        inflation: "0.015"
+        cola: "0.014"
+        fehb: "0.080"
+
+  financial_crisis_2008:
+    name: "2008-2009 Great Financial Crisis"
+    description: "Housing collapse + 57% drawdown"
+    repeat: false
+    years:
+      - year: 2008
+        label: "Lehman failure"
+        tsp_returns:
+          C: "-0.372"
+          S: "-0.385"
+          I: "-0.438"
+          F: "0.055"
+          G: "0.037"
+        inflation: "0.038"
+        cola: "0.055"
+        fehb: "0.090"
+      - year: 2009
+        label: "Policy bazooka"
+        tsp_returns:
+          C: "0.268"
+          S: "0.345"
+          I: "0.305"
+          F: "0.059"
+          G: "0.028"
+        inflation: "-0.004"
+        cola: "0.000"
+        fehb: "0.060"
+
+  covid_pandemic_2020:
+    name: "2020 COVID-19 Pandemic"
+    description: "Rapid decline and recovery"
+    repeat: true
+    years:
+      - year: 2020
+        label: "Lockdowns"
+        tsp_returns:
+          C: "0.187"
+          S: "0.293"
+          I: "0.079"
+          F: "0.074"
+          G: "0.009"
+        inflation: "0.013"
+        cola: "0.015"
+        fehb: "0.065"
+      - year: 2021
+        label: "Stimulus + inflation"
+        tsp_returns:
+          C: "0.288"
+          S: "0.127"
+          I: "0.117"
+          F: "-0.015"
+          G: "0.011"
+        inflation: "0.070"
+        cola: "0.058"
+        fehb: "0.080"

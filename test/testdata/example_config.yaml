@@ -1,0 +1,73 @@
+personal_details:
+  person_a:
+    name: "Person A"
+    birth_date: "1963-06-15T00:00:00Z"
+    hire_date: "1985-03-20T00:00:00Z"
+    employment_type: "federal"
+    current_salary: 95000
+    high_3_salary: 93000
+    tsp_balance_traditional: 450000
+    tsp_balance_roth: 50000
+    tsp_contribution_percent: 0.15
+    ss_benefit_fra: 2400
+    ss_benefit_62: 1680
+    ss_benefit_70: 2976
+    fehb_premium_per_pay_period: 875
+    survivor_benefit_election_percent: 0.0
+
+  person_b:
+    name: "Person B"
+    birth_date: "1965-08-22T00:00:00Z"
+    hire_date: "1988-07-10T00:00:00Z"
+    employment_type: "federal"
+    current_salary: 87000
+    high_3_salary: 85000
+    tsp_balance_traditional: 380000
+    tsp_balance_roth: 45000
+    tsp_contribution_percent: 0.12
+    ss_benefit_fra: 2200
+    ss_benefit_62: 1540
+    ss_benefit_70: 2728
+    fehb_premium_per_pay_period: 0.0
+    survivor_benefit_election_percent: 0.0
+
+global_assumptions:
+  inflation_rate: 0.025
+  fehb_premium_inflation: 0.065
+  tsp_return_pre_retirement: 0.055
+  tsp_return_post_retirement: 0.045
+  cola_general_rate: 0.025
+  projection_years: 25
+  current_location:
+    state: "Pennsylvania"
+    county: "Bucks"
+    municipality: "Upper Makefield Township"
+
+scenarios:
+  - name: "Early Retirement 2025"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+      tsp_withdrawal_target_monthly: null
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2025-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+      tsp_withdrawal_target_monthly: null
+
+  - name: "Delayed Retirement 2028"
+    person_a:
+      employee_name: "person_a"
+      retirement_date: "2028-12-31T00:00:00Z"
+      ss_start_age: 67
+      tsp_withdrawal_strategy: "need_based"
+      tsp_withdrawal_target_monthly: 3000
+    person_b:
+      employee_name: "person_b"
+      retirement_date: "2028-12-31T00:00:00Z"
+      ss_start_age: 62
+      tsp_withdrawal_strategy: "4_percent_rule"
+      tsp_withdrawal_target_monthly: null

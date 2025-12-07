@@ -1,0 +1,191 @@
+{
+  "id": "a261a572-449b-4163-90f2-cc933b60f36e",
+  "name": "test",
+  "description": "Loaded from example_config.yaml",
+  "updated_at": "2025-12-05T19:43:29.0928875Z",
+  "config": {
+    "personal_details": {
+      "person_a": {
+        "name": "Person A",
+        "birth_date": "1965-02-25T00:00:00Z",
+        "hire_date": "1987-06-22T00:00:00Z",
+        "employment_type": "federal",
+        "current_salary": "190779",
+        "high_3_salary": "190000",
+        "tsp_balance_traditional": "2055000",
+        "tsp_balance_roth": "0",
+        "tsp_contribution_percent": "0.128",
+        "ss_benefit_fra": "4012",
+        "ss_benefit_62": "2795",
+        "ss_benefit_70": "5000",
+        "fehb_premium_per_pay_period": "488.49",
+        "survivor_benefit_election_percent": "0",
+        "sick_leave_hours": "1868"
+      },
+      "person_b": {
+        "name": "Person B",
+        "birth_date": "1963-07-31T00:00:00Z",
+        "hire_date": "1995-07-11T00:00:00Z",
+        "employment_type": "federal",
+        "current_salary": "176620",
+        "high_3_salary": "164000",
+        "tsp_balance_traditional": "1525175.9",
+        "tsp_balance_roth": "0",
+        "tsp_contribution_percent": "0.153",
+        "ss_benefit_fra": "3826",
+        "ss_benefit_62": "2527",
+        "ss_benefit_70": "4860",
+        "fehb_premium_per_pay_period": "0",
+        "survivor_benefit_election_percent": "0",
+        "sick_leave_hours": "1057.5"
+      }
+    },
+    "global_assumptions": {
+      "inflation_rate": "0.025",
+      "fehb_premium_inflation": "0.06",
+      "tsp_return_pre_retirement": "0.07",
+      "tsp_return_post_retirement": "0.05",
+      "cola_general_rate": "0.025",
+      "projection_years": 25,
+      "current_location": {
+        "state": "Pennsylvania",
+        "county": "Bucks",
+        "municipality": "Upper Makefield Township"
+      },
+      "monte_carlo_settings": {
+        "tsp_return_variability": "0",
+        "inflation_variability": "0",
+        "cola_variability": "0",
+        "fehb_variability": "0",
+        "max_reasonable_income": "0",
+        "default_tsp_allocation": {
+          "c_fund": "0",
+          "s_fund": "0",
+          "i_fund": "0",
+          "f_fund": "0",
+          "g_fund": "0"
+        }
+      },
+      "federal_rules": {
+        "social_security_tax_thresholds": {
+          "married_filing_jointly": {
+            "threshold_1": "0",
+            "threshold_2": "0"
+          },
+          "single": {
+            "threshold_1": "0",
+            "threshold_2": "0"
+          }
+        },
+        "social_security_rules": {
+          "early_retirement_reduction": {
+            "first_36_months_rate": "0",
+            "additional_months_rate": "0"
+          },
+          "delayed_retirement_credit": "0"
+        },
+        "fers_rules": {
+          "tsp_matching_rate": "0",
+          "tsp_matching_threshold": "0"
+        },
+        "federal_tax_config": {
+          "standard_deduction_mfj": "0",
+          "standard_deduction_single": "0",
+          "additional_standard_deduction_65_plus": "0",
+          "tax_brackets_2025": null,
+          "tax_brackets_2025_single": null
+        },
+        "state_local_tax_config": {
+          "pennsylvania_rate": "0",
+          "upper_makefield_eit_rate": "0",
+          "new_jersey_rate": "0"
+        },
+        "fica_tax_config": {
+          "year": 0,
+          "social_security_wage_base": "0",
+          "social_security_rate": "0",
+          "medicare_rate": "0",
+          "additional_medicare_rate": "0",
+          "high_income_threshold_mfj": "0"
+        },
+        "medicare_config": {
+          "base_premium_2025": "0",
+          "irmaa_thresholds": null
+        },
+        "fehb_config": {
+          "pay_periods_per_year": 26,
+          "retirement_calculation_method": "same_as_active",
+          "retirement_premium_multiplier": "1"
+        }
+      },
+      "tsp_statistical_models": {
+        "c_fund": {
+          "mean": "0",
+          "standard_dev": "0",
+          "data_source": "",
+          "last_updated": ""
+        },
+        "s_fund": {
+          "mean": "0",
+          "standard_dev": "0",
+          "data_source": "",
+          "last_updated": ""
+        },
+        "i_fund": {
+          "mean": "0",
+          "standard_dev": "0",
+          "data_source": "",
+          "last_updated": ""
+        },
+        "f_fund": {
+          "mean": "0",
+          "standard_dev": "0",
+          "data_source": "",
+          "last_updated": ""
+        },
+        "g_fund": {
+          "mean": "0",
+          "standard_dev": "0",
+          "data_source": "",
+          "last_updated": ""
+        }
+      }
+    },
+    "scenarios": [
+      {
+        "name": "Both Retire in 2025",
+        "person_a": {
+          "employee_name": "person_a",
+          "retirement_date": "2025-12-27T00:00:00Z",
+          "ss_start_age": 62,
+          "tsp_withdrawal_strategy": "variable_percentage",
+          "tsp_withdrawal_rate": "0.01"
+        },
+        "person_b": {
+          "employee_name": "person_b",
+          "retirement_date": "2025-08-30T00:00:00Z",
+          "ss_start_age": 62,
+          "tsp_withdrawal_strategy": "variable_percentage",
+          "tsp_withdrawal_rate": "0.01"
+        }
+      },
+      {
+        "name": "PersonA Retires at 62 - Feb 2027",
+        "person_a": {
+          "employee_name": "person_a",
+          "retirement_date": "2027-02-28T00:00:00Z",
+          "ss_start_age": 62,
+          "tsp_withdrawal_strategy": "variable_percentage",
+          "tsp_withdrawal_rate": "0.04"
+        },
+        "person_b": {
+          "employee_name": "person_b",
+          "retirement_date": "2025-08-30T00:00:00Z",
+          "ss_start_age": 62,
+          "tsp_withdrawal_strategy": "variable_percentage",
+          "tsp_withdrawal_rate": "0.04"
+        }
+      }
+    ]
+  }
+}

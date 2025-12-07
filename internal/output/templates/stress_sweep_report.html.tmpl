@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.ScenarioTitle}}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #0f172a;
+            color: #f1f5f9;
+        }
+        .hero {
+            padding: 40px 30px;
+            background: linear-gradient(135deg, #0f172a, #1e293b 60%, #0f172a);
+            text-align: center;
+        }
+        .hero h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            color: #38bdf8;
+        }
+        .hero p {
+            margin: 10px 0 0;
+            color: #cbd5f5;
+        }
+        .container {
+            padding: 30px;
+            max-width: 1400px;
+            margin: auto;
+        }
+        .card {
+            background: #1e293b;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.5);
+        }
+        .card h2 {
+            margin: 0 0 15px 0;
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+        canvas {
+            width: 100%;
+            height: 360px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px 10px;
+            text-align: left;
+        }
+        th {
+            background: #0f172a;
+            color: #cbd5f5;
+            font-size: 0.9rem;
+            letter-spacing: 0.04em;
+        }
+        tr:nth-child(even) {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        .highlight {
+            background: rgba(248, 113, 113, 0.2) !important;
+        }
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+        }
+        .tag-worst {
+            background: rgba(248, 113, 113, 0.15);
+            color: #fecaca;
+        }
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>{{.ScenarioTitle}}</h1>
+        <p>{{.Description}}</p>
+        <p>Offsets evaluated: {{.OffsetCount}} &bull; Generated {{.GeneratedAt}}</p>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Median Net Income Overlay</h2>
+            <canvas id="netOverlay"></canvas>
+        </div>
+
+        <div class="card">
+            <h2>Median Total TSP Balance Overlay</h2>
+            <canvas id="tspOverlay"></canvas>
+        </div>
+
+        <div class="card">
+            <h2>Offset Summary</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Offset</th>
+                        <th>Success Rate</th>
+                        <th>Median Net Income</th>
+                        <th>Median Final TSP</th>
+                        <th>TSP Depletion</th>
+                        <th>Income Volatility</th>
+                        <th>Worst Case Net</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .SummaryRows}}
+                    <tr class="{{if .IsWorst}}highlight{{end}}">
+                        <td>
+                            {{.OffsetLabel}}
+                            {{if .IsWorst}}
+                            <span class="tag tag-worst">Worst Offset</span>
+                            {{end}}
+                        </td>
+                        <td>{{.SuccessRate}}</td>
+                        <td>{{.MedianNetIncome}}</td>
+                        <td>{{.MedianFinalTSP}}</td>
+                        <td>{{.TSPDepletionRate}}</td>
+                        <td>{{.IncomeVolatility}}</td>
+                        <td>{{.WorstCaseNetIncome}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        Monte Carlo Stress Sweep &mdash; explore how timing affects retirement resilience.
+    </div>
+
+    <script>
+        const netOverlayCtx = document.getElementById('netOverlay').getContext('2d');
+        const tspOverlayCtx = document.getElementById('tspOverlay').getContext('2d');
+
+        const netData = {{.NetChartData}};
+        const tspData = {{.TSPChartData}};
+
+        const palette = [
+            '#38bdf8', '#f472b6', '#c084fc', '#facc15', '#34d399',
+            '#f97316', '#a3e635', '#f87171', '#818cf8', '#2dd4bf'
+        ];
+
+        function colorForIndex(index) {
+            return palette[index % palette.length];
+        }
+
+        new Chart(netOverlayCtx, {
+            type: 'line',
+            data: {
+                labels: netData.labels,
+                datasets: netData.series.map((s, idx) => ({
+                    label: s.label,
+                    data: s.data,
+                    borderColor: colorForIndex(idx),
+                    backgroundColor: 'rgba(255,255,255,0)',
+                    borderWidth: 2,
+                    tension: 0.25
+                }))
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'nearest', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y: {
+                        ticks: { callback: value => '$' + Math.round(value).toLocaleString() }
+                    }
+                }
+            }
+        });
+
+        new Chart(tspOverlayCtx, {
+            type: 'line',
+            data: {
+                labels: tspData.labels,
+                datasets: tspData.series.map((s, idx) => ({
+                    label: s.label,
+                    data: s.data,
+                    borderColor: colorForIndex(idx + 3),
+                    backgroundColor: 'rgba(255,255,255,0)',
+                    borderWidth: 2,
+                    tension: 0.25
+                }))
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'nearest', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y: {
+                        ticks: { callback: value => '$' + Math.round(value).toLocaleString() }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
