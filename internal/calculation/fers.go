@@ -45,6 +45,16 @@ func CalculateFERSPension(employee *domain.Employee, retirementDate time.Time) F
 	// Calculate base pension (unreduced)
 	annualPension := employee.High3Salary.Mul(serviceYears).Mul(multiplier)
 
+	// Apply MRA+10 reduction when applicable
+	reductionRate := CalculatePensionReduction(employee, retirementDate)
+	if reductionRate.GreaterThan(decimal.Zero) {
+		reductionFactor := decimal.NewFromInt(1).Sub(reductionRate)
+		if reductionFactor.IsNegative() {
+			reductionFactor = decimal.Zero
+		}
+		annualPension = annualPension.Mul(reductionFactor)
+	}
+
 	// Survivor rules (simplified FERS):
 	// If elect 50% survivor annuity -> retiree pension reduced by 10%
 	// If elect 25% survivor annuity -> retiree pension reduced by 5%
@@ -195,9 +205,10 @@ func ValidateFERSEligibility(employee *domain.Employee, retirementDate time.Time
 	age := employee.Age(retirementDate)
 	serviceYears := employee.YearsOfService(retirementDate)
 	mra := dateutil.MinimumRetirementAge(employee.BirthDate)
+	hasReachedMRA := dateutil.HasReachedRetirementAge(employee.BirthDate, retirementDate, mra)
 
 	// Check minimum age and service requirements
-	if age < mra {
+	if !hasReachedMRA {
 		return false, "Employee has not reached Minimum Retirement Age"
 	}
 
@@ -210,11 +221,11 @@ func ValidateFERSEligibility(employee *domain.Employee, retirementDate time.Time
 		return true, "Eligible for immediate annuity at age 62+"
 	}
 
-	if age >= mra && serviceYears.GreaterThanOrEqual(decimal.NewFromInt(10)) {
+	if hasReachedMRA && serviceYears.GreaterThanOrEqual(decimal.NewFromInt(10)) {
 		return true, "Eligible for immediate annuity at MRA with 10+ years"
 	}
 
-	if age >= mra && serviceYears.GreaterThanOrEqual(decimal.NewFromInt(5)) && serviceYears.LessThan(decimal.NewFromInt(10)) {
+	if hasReachedMRA && serviceYears.GreaterThanOrEqual(decimal.NewFromInt(5)) && serviceYears.LessThan(decimal.NewFromInt(10)) {
 		return true, "Eligible for deferred annuity (reduced benefits)"
 	}
 
@@ -226,15 +237,16 @@ func CalculatePensionReduction(employee *domain.Employee, retirementDate time.Ti
 	age := employee.Age(retirementDate)
 	serviceYears := employee.YearsOfService(retirementDate)
 	mra := dateutil.MinimumRetirementAge(employee.BirthDate)
+	hasReachedMRA := dateutil.HasReachedRetirementAge(employee.BirthDate, retirementDate, mra)
 
 	// No reduction if age 62+ with 5+ years, or MRA+ with 20+ years
 	if (age >= 62 && serviceYears.GreaterThanOrEqual(decimal.NewFromInt(5))) ||
-		(age >= mra && serviceYears.GreaterThanOrEqual(decimal.NewFromInt(20))) {
+		(hasReachedMRA && serviceYears.GreaterThanOrEqual(decimal.NewFromInt(20))) {
 		return decimal.Zero
 	}
 
 	// Reduction applies for MRA+ with 10-20 years of service
-	if age >= mra && serviceYears.GreaterThanOrEqual(decimal.NewFromInt(10)) && serviceYears.LessThan(decimal.NewFromInt(20)) {
+	if hasReachedMRA && serviceYears.GreaterThanOrEqual(decimal.NewFromInt(10)) && serviceYears.LessThan(decimal.NewFromInt(20)) {
 		// 5% reduction for each year under age 62
 		yearsUnder62 := 62 - age
 		reductionRate := decimal.NewFromInt(int64(yearsUnder62)).Mul(decimal.NewFromFloat(0.05))

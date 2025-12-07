@@ -157,37 +157,37 @@ func TestFullRetirementAge(t *testing.T) {
 	tests := []struct {
 		name        string
 		birthDate   time.Time
-		expectedFRA int
+		expectedFRA RetirementAge
 		description string
 	}{
 		{
 			name:        "Born 1937 or earlier",
 			birthDate:   time.Date(1937, 1, 1, 0, 0, 0, 0, time.UTC),
-			expectedFRA: 65,
+			expectedFRA: RetirementAge{Years: 65},
 			description: "FRA 65 for pre-1938 births",
 		},
 		{
 			name:        "Born 1943-1954",
 			birthDate:   time.Date(1950, 1, 1, 0, 0, 0, 0, time.UTC),
-			expectedFRA: 66,
+			expectedFRA: RetirementAge{Years: 66},
 			description: "FRA 66 for 1943-1954 births",
 		},
 		{
 			name:        "Born 1959 - transition year",
 			birthDate:   time.Date(1959, 1, 1, 0, 0, 0, 0, time.UTC),
-			expectedFRA: 66, // 66 + 10 months, but function returns 66
+			expectedFRA: RetirementAge{Years: 66, Months: 10},
 			description: "FRA during transition period",
 		},
 		{
 			name:        "Born 1960 - Person A",
 			birthDate:   time.Date(1965, 2, 25, 0, 0, 0, 0, time.UTC),
-			expectedFRA: 67,
+			expectedFRA: RetirementAge{Years: 67},
 			description: "FRA 67 for 1960+ births",
 		},
 		{
 			name:        "Person B FRA",
 			birthDate:   time.Date(1963, 7, 31, 0, 0, 0, 0, time.UTC),
-			expectedFRA: 67,
+			expectedFRA: RetirementAge{Years: 67},
 			description: "Person B full retirement age",
 		},
 	}
@@ -196,7 +196,7 @@ func TestFullRetirementAge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fra := FullRetirementAge(tt.birthDate)
 			assert.Equal(t, tt.expectedFRA, fra,
-				"%s: Expected FRA %d, got %d", tt.description, tt.expectedFRA, fra)
+				"%s: Expected FRA %+v, got %+v", tt.description, tt.expectedFRA, fra)
 		})
 	}
 }
@@ -206,37 +206,37 @@ func TestMinimumRetirementAge(t *testing.T) {
 	tests := []struct {
 		name        string
 		birthDate   time.Time
-		expectedMRA int
+		expectedMRA RetirementAge
 		description string
 	}{
 		{
 			name:        "Born 1947 or earlier",
 			birthDate:   time.Date(1947, 1, 1, 0, 0, 0, 0, time.UTC),
-			expectedMRA: 55,
+			expectedMRA: RetirementAge{Years: 55},
 			description: "MRA 55 for pre-1948 births",
 		},
 		{
 			name:        "Born 1953-1964",
 			birthDate:   time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC),
-			expectedMRA: 56,
+			expectedMRA: RetirementAge{Years: 56},
 			description: "MRA 56 for 1953-1964 births",
 		},
 		{
 			name:        "Born 1965 - Person A",
 			birthDate:   time.Date(1965, 2, 25, 0, 0, 0, 0, time.UTC),
-			expectedMRA: 56, // 56 + 2 months, but function returns 56
+			expectedMRA: RetirementAge{Years: 56, Months: 2},
 			description: "Person A minimum retirement age",
 		},
 		{
 			name:        "Born 1963 - Person B",
 			birthDate:   time.Date(1963, 7, 31, 0, 0, 0, 0, time.UTC),
-			expectedMRA: 56,
+			expectedMRA: RetirementAge{Years: 56},
 			description: "Person B minimum retirement age",
 		},
 		{
 			name:        "Born 1970 or later",
 			birthDate:   time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
-			expectedMRA: 57,
+			expectedMRA: RetirementAge{Years: 57},
 			description: "MRA 57 for 1970+ births",
 		},
 	}
@@ -245,7 +245,7 @@ func TestMinimumRetirementAge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mra := MinimumRetirementAge(tt.birthDate)
 			assert.Equal(t, tt.expectedMRA, mra,
-				"%s: Expected MRA %d, got %d", tt.description, tt.expectedMRA, mra)
+				"%s: Expected MRA %+v, got %+v", tt.description, tt.expectedMRA, mra)
 		})
 	}
 }

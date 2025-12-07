@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rpgo/retirement-calculator/pkg/dateutil"
 	"github.com/shopspring/decimal"
 	"gopkg.in/yaml.v3"
 )
@@ -479,12 +480,17 @@ func (e *Employee) Age(atDate time.Time) int {
 	return age
 }
 
-// YearsOfService calculates the years of service at a given date, including sick leave credit
-func (e *Employee) YearsOfService(atDate time.Time) decimal.Decimal {
+// CreditableService calculates service used for eligibility (excludes sick leave)
+func (e *Employee) CreditableService(atDate time.Time) decimal.Decimal {
 	// Calculate basic service time from hire date to retirement/calculation date
 	serviceDuration := atDate.Sub(e.HireDate)
 	years := decimal.NewFromFloat(serviceDuration.Hours() / 24 / 365.25)
+	return years.Round(4)
+}
 
+// YearsOfService calculates the years of service at a given date, including sick leave credit
+func (e *Employee) YearsOfService(atDate time.Time) decimal.Decimal {
+	years := e.CreditableService(atDate)
 	// Add sick leave credit if available
 	// FERS Rule: Unused sick leave at retirement counts toward service computation
 	// 1 day of sick leave = 1 day of service credit (8 hours = 1 day)
@@ -498,73 +504,13 @@ func (e *Employee) YearsOfService(atDate time.Time) decimal.Decimal {
 }
 
 // FullRetirementAge calculates the Social Security Full Retirement Age based on birth year
-func (e *Employee) FullRetirementAge() int {
-	birthYear := e.BirthDate.Year()
-
-	switch {
-	case birthYear <= 1937:
-		return 65
-	case birthYear == 1938:
-		return 65 + 2 // 65 years and 2 months
-	case birthYear == 1939:
-		return 65 + 4 // 65 years and 4 months
-	case birthYear == 1940:
-		return 65 + 6 // 65 years and 6 months
-	case birthYear == 1941:
-		return 65 + 8 // 65 years and 8 months
-	case birthYear == 1942:
-		return 65 + 10 // 65 years and 10 months
-	case birthYear >= 1943 && birthYear <= 1954:
-		return 66
-	case birthYear == 1955:
-		return 66 + 2 // 66 years and 2 months
-	case birthYear == 1956:
-		return 66 + 4 // 66 years and 4 months
-	case birthYear == 1957:
-		return 66 + 6 // 66 years and 6 months
-	case birthYear == 1958:
-		return 66 + 8 // 66 years and 8 months
-	case birthYear == 1959:
-		return 66 + 10 // 66 years and 10 months
-	default: // 1960 and later
-		return 67
-	}
+func (e *Employee) FullRetirementAge() dateutil.RetirementAge {
+	return dateutil.FullRetirementAge(e.BirthDate)
 }
 
 // MinimumRetirementAge calculates the FERS Minimum Retirement Age
-func (e *Employee) MinimumRetirementAge() int {
-	birthYear := e.BirthDate.Year()
-
-	switch {
-	case birthYear <= 1947:
-		return 55
-	case birthYear == 1948:
-		return 55 + 2 // 55 years and 2 months
-	case birthYear == 1949:
-		return 55 + 4 // 55 years and 4 months
-	case birthYear == 1950:
-		return 55 + 6 // 55 years and 6 months
-	case birthYear == 1951:
-		return 55 + 8 // 55 years and 8 months
-	case birthYear == 1952:
-		return 55 + 10 // 55 years and 10 months
-	case birthYear >= 1953 && birthYear <= 1964:
-		return 56
-	case birthYear == 1965:
-		return 56 + 2 // 56 years and 2 months
-	case birthYear == 1966:
-		return 56 + 4 // 56 years and 4 months
-	case birthYear == 1967:
-		return 56 + 6 // 56 years and 6 months
-	case birthYear == 1968:
-		return 56 + 8 // 56 years and 8 months
-	case birthYear == 1969:
-		return 56 + 10 // 56 years and 10 months
-	case birthYear >= 1970:
-		return 57
-	default:
-		return 57
-	}
+func (e *Employee) MinimumRetirementAge() dateutil.RetirementAge {
+	return dateutil.MinimumRetirementAge(e.BirthDate)
 }
 
 // TotalTSPBalance returns the combined traditional and Roth TSP balance

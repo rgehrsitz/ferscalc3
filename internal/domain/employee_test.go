@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rpgo/retirement-calculator/pkg/dateutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 )
@@ -101,33 +102,33 @@ func TestEmployee_YearsOfService_WithSickLeave(t *testing.T) {
 	years := employee.YearsOfService(atDate)
 
 	// Should be approximately 40.78 + 0.71 (260 days / 365.25) = 41.49 years
-	expected := "41.4949"
+	expected := "41.4948"
 	assert.Equal(t, expected, years.StringFixed(4))
 }
 
 func TestEmployee_FullRetirementAge(t *testing.T) {
 	testCases := []struct {
 		birthYear int
-		expected  int
+		expected  dateutil.RetirementAge
 		desc      string
 	}{
-		{1935, 65, "born 1935"},
-		{1937, 65, "born 1937"},
-		{1938, 67, "born 1938 (65 + 2 months)"},
-		{1939, 69, "born 1939 (65 + 4 months)"},
-		{1940, 71, "born 1940 (65 + 6 months)"},
-		{1941, 73, "born 1941 (65 + 8 months)"},
-		{1942, 75, "born 1942 (65 + 10 months)"},
-		{1943, 66, "born 1943"},
-		{1954, 66, "born 1954"},
-		{1955, 68, "born 1955 (66 + 2 months)"},
-		{1956, 70, "born 1956 (66 + 4 months)"},
-		{1957, 72, "born 1957 (66 + 6 months)"},
-		{1958, 74, "born 1958 (66 + 8 months)"},
-		{1959, 76, "born 1959 (66 + 10 months)"},
-		{1960, 67, "born 1960"},
-		{1963, 67, "born 1963"},
-		{1970, 67, "born 1970"},
+		{1935, dateutil.RetirementAge{Years: 65}, "born 1935"},
+		{1937, dateutil.RetirementAge{Years: 65}, "born 1937"},
+		{1938, dateutil.RetirementAge{Years: 65, Months: 2}, "born 1938 (65 + 2 months)"},
+		{1939, dateutil.RetirementAge{Years: 65, Months: 4}, "born 1939 (65 + 4 months)"},
+		{1940, dateutil.RetirementAge{Years: 65, Months: 6}, "born 1940 (65 + 6 months)"},
+		{1941, dateutil.RetirementAge{Years: 65, Months: 8}, "born 1941 (65 + 8 months)"},
+		{1942, dateutil.RetirementAge{Years: 65, Months: 10}, "born 1942 (65 + 10 months)"},
+		{1943, dateutil.RetirementAge{Years: 66}, "born 1943"},
+		{1954, dateutil.RetirementAge{Years: 66}, "born 1954"},
+		{1955, dateutil.RetirementAge{Years: 66, Months: 2}, "born 1955 (66 + 2 months)"},
+		{1956, dateutil.RetirementAge{Years: 66, Months: 4}, "born 1956 (66 + 4 months)"},
+		{1957, dateutil.RetirementAge{Years: 66, Months: 6}, "born 1957 (66 + 6 months)"},
+		{1958, dateutil.RetirementAge{Years: 66, Months: 8}, "born 1958 (66 + 8 months)"},
+		{1959, dateutil.RetirementAge{Years: 66, Months: 10}, "born 1959 (66 + 10 months)"},
+		{1960, dateutil.RetirementAge{Years: 67}, "born 1960"},
+		{1963, dateutil.RetirementAge{Years: 67}, "born 1963"},
+		{1970, dateutil.RetirementAge{Years: 67}, "born 1970"},
 	}
 
 	for _, tc := range testCases {
@@ -144,26 +145,26 @@ func TestEmployee_FullRetirementAge(t *testing.T) {
 func TestEmployee_MinimumRetirementAge(t *testing.T) {
 	testCases := []struct {
 		birthYear int
-		expected  int
+		expected  dateutil.RetirementAge
 		desc      string
 	}{
-		{1945, 55, "born 1945"},
-		{1947, 55, "born 1947"},
-		{1948, 57, "born 1948 (55 + 2 months)"},
-		{1949, 59, "born 1949 (55 + 4 months)"},
-		{1950, 61, "born 1950 (55 + 6 months)"},
-		{1951, 63, "born 1951 (55 + 8 months)"},
-		{1952, 65, "born 1952 (55 + 10 months)"},
-		{1953, 56, "born 1953"},
-		{1964, 56, "born 1964"},
-		{1965, 58, "born 1965 (56 + 2 months)"},
-		{1966, 60, "born 1966 (56 + 4 months)"},
-		{1967, 62, "born 1967 (56 + 6 months)"},
-		{1968, 64, "born 1968 (56 + 8 months)"},
-		{1969, 66, "born 1969 (56 + 10 months)"},
-		{1970, 57, "born 1970"},
-		{1975, 57, "born 1975"},
-		{1980, 57, "born 1980"},
+		{1945, dateutil.RetirementAge{Years: 55}, "born 1945"},
+		{1947, dateutil.RetirementAge{Years: 55}, "born 1947"},
+		{1948, dateutil.RetirementAge{Years: 55, Months: 2}, "born 1948 (55 + 2 months)"},
+		{1949, dateutil.RetirementAge{Years: 55, Months: 4}, "born 1949 (55 + 4 months)"},
+		{1950, dateutil.RetirementAge{Years: 55, Months: 6}, "born 1950 (55 + 6 months)"},
+		{1951, dateutil.RetirementAge{Years: 55, Months: 8}, "born 1951 (55 + 8 months)"},
+		{1952, dateutil.RetirementAge{Years: 55, Months: 10}, "born 1952 (55 + 10 months)"},
+		{1953, dateutil.RetirementAge{Years: 56}, "born 1953"},
+		{1964, dateutil.RetirementAge{Years: 56}, "born 1964"},
+		{1965, dateutil.RetirementAge{Years: 56, Months: 2}, "born 1965 (56 + 2 months)"},
+		{1966, dateutil.RetirementAge{Years: 56, Months: 4}, "born 1966 (56 + 4 months)"},
+		{1967, dateutil.RetirementAge{Years: 56, Months: 6}, "born 1967 (56 + 6 months)"},
+		{1968, dateutil.RetirementAge{Years: 56, Months: 8}, "born 1968 (56 + 8 months)"},
+		{1969, dateutil.RetirementAge{Years: 56, Months: 10}, "born 1969 (56 + 10 months)"},
+		{1970, dateutil.RetirementAge{Years: 57}, "born 1970"},
+		{1975, dateutil.RetirementAge{Years: 57}, "born 1975"},
+		{1980, dateutil.RetirementAge{Years: 57}, "born 1980"},
 	}
 
 	for _, tc := range testCases {

@@ -71,8 +71,8 @@ func TestFederalTaxCalculation(t *testing.T) {
 		{
 			name:        "PersonA and PersonB current income",
 			grossIncome: decimal.NewFromFloat(367399), // Their actual combined gross
-			age1:        60,
-			age2:        62,
+			age1:        61,
+			age2:        63,
 			expectedTax: decimal.NewFromFloat(67061), // (367399-30000) across all brackets
 			description: "Real scenario: PersonA and PersonB's current income",
 		},
@@ -85,6 +85,63 @@ func TestFederalTaxCalculation(t *testing.T) {
 			// Allow for rounding differences in federal tax calculations (within $100)
 			difference := tax.Sub(tt.expectedTax).Abs()
 			assert.True(t, difference.LessThan(decimal.NewFromInt(100)),
+				"%s: Expected %s, got %s (difference: %s)", tt.description,
+				tt.expectedTax.StringFixed(2), tax.StringFixed(2), difference.StringFixed(2))
+		})
+	}
+}
+
+// TestNewJerseyTaxCalculation tests NJ state tax calculations with pension exclusion logic
+func TestNewJerseyTaxCalculation(t *testing.T) {
+	calculator := NewNewJerseyTaxCalculator()
+
+	tests := []struct {
+		name        string
+		income      domain.TaxableIncome
+		isRetired   bool
+		expectedTax decimal.Decimal
+		description string
+	}{
+		{
+			name: "Working household - no exclusion",
+			income: domain.TaxableIncome{
+				Salary:             decimal.NewFromInt(80000),
+				FERSPension:        decimal.Zero,
+				TSPWithdrawalsTrad: decimal.Zero,
+			},
+			isRetired:   false,
+			expectedTax: decimal.NewFromFloat(2969.75), // No exclusion; full bracketed tax
+			description: "Working wages taxed without exclusion",
+		},
+		{
+			name: "Retired below exclusion threshold",
+			income: domain.TaxableIncome{
+				FERSPension:        decimal.NewFromInt(60000),
+				TSPWithdrawalsTrad: decimal.NewFromInt(20000),
+			},
+			isRetired:   true,
+			expectedTax: decimal.Zero,
+			description: "Entire retirement income excluded when total <= 150k",
+		},
+		{
+			name: "Retired partial exclusion",
+			income: domain.TaxableIncome{
+				FERSPension:        decimal.NewFromInt(90000),
+				TSPWithdrawalsTrad: decimal.NewFromInt(50000),
+				OtherTaxableIncome: decimal.NewFromInt(10000),
+			},
+			isRetired:   true,
+			expectedTax: decimal.NewFromFloat(1270), // 50k taxable after exclusion
+			description: "Only remaining taxable income is non-retirement after exclusion",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tax := calculator.CalculateTax(tt.income, tt.isRetired)
+
+			difference := tax.Sub(tt.expectedTax).Abs()
+			assert.True(t, difference.LessThan(decimal.NewFromFloat(1)),
 				"%s: Expected %s, got %s (difference: %s)", tt.description,
 				tt.expectedTax.StringFixed(2), tax.StringFixed(2), difference.StringFixed(2))
 		})
@@ -397,7 +454,7 @@ func TestSocialSecurityTaxationComprehensive(t *testing.T) {
 			annualSSBenefit:    decimal.NewFromInt(36000),
 			otherIncome:        decimal.NewFromInt(50000),
 			nontaxableInterest: decimal.Zero,
-			expectedTaxable:    decimal.NewFromInt(30600), // 85% of benefits
+			expectedTaxable:    decimal.NewFromInt(26400), // IRS worksheet result for this income
 			description:        "Above second threshold: 85% taxation",
 		},
 		{
@@ -413,7 +470,7 @@ func TestSocialSecurityTaxationComprehensive(t *testing.T) {
 			annualSSBenefit:    decimal.NewFromInt(30000),
 			otherIncome:        decimal.NewFromInt(30000),
 			nontaxableInterest: decimal.NewFromInt(10000), // Municipal bond interest
-			expectedTaxable:    decimal.NewFromInt(25500), // 85% taxation due to higher provisional income
+			expectedTaxable:    decimal.NewFromInt(15350), // Worksheet result given provisional income
 			description:        "Municipal bond interest affects SS taxation",
 		},
 	}

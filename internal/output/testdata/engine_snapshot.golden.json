@@ -3,14 +3,14 @@
   "scenarios": [
     {
       "name": "Both Retire in 2025",
-      "first_year_net": "237725.95",
+      "first_year_net": "242266.91",
       "year5": "197721.17",
       "year10": "208809.05",
       "tsp_longevity": 25
     },
     {
       "name": "PersonA Retires at 62 - Feb 2027",
-      "first_year_net": "180474.11",
+      "first_year_net": "185015.07",
       "year5": "206123.87",
       "year10": "218264.78",
       "tsp_longevity": 25

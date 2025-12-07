@@ -21,7 +21,7 @@ func TestSocialSecurityOfficialExamples(t *testing.T) {
 	}{
 		{
 			name:            "SSA 2025 Example: Maximum benefit at FRA",
-			birthDate:       time.Date(1958, 1, 1, 0, 0, 0, 0, time.UTC), // FRA = 66
+			birthDate:       time.Date(1954, 1, 1, 0, 0, 0, 0, time.UTC), // FRA = 66
 			benefitAtFRA:    decimal.NewFromInt(4018),                    // 2025 maximum at FRA
 			claimingAge:     66,                                          // Fixed: was 67, should be 66 for FRA benefit
 			expectedBenefit: decimal.NewFromInt(4018),
@@ -37,7 +37,7 @@ func TestSocialSecurityOfficialExamples(t *testing.T) {
 		},
 		{
 			name:            "SSA 2025 Example: Maximum benefit at age 70",
-			birthDate:       time.Date(1955, 1, 1, 0, 0, 0, 0, time.UTC), // FRA = 66 (simplified)
+			birthDate:       time.Date(1954, 1, 1, 0, 0, 0, 0, time.UTC), // FRA = 66
 			benefitAtFRA:    decimal.NewFromInt(4018),
 			claimingAge:     70,
 			expectedBenefit: decimal.NewFromFloat(5303.76), // 4018 * 1.32 (4 years × 8%)
@@ -278,10 +278,10 @@ func TestSocialSecurityTaxation(t *testing.T) {
 			description:           "Provisional income between $32,000 and $44,000",
 		},
 		{
-			name:                  "Above second threshold: 85% taxation",
+			name:                  "Above second threshold: worksheet calculation",
 			annualSSBenefit:       decimal.NewFromInt(30000),
 			otherIncome:           decimal.NewFromInt(50000), // Provisional income = 65000
-			expectedTaxableAmount: decimal.NewFromInt(25500), // 85% of benefits
+			expectedTaxableAmount: decimal.NewFromInt(23850), // IRS worksheet result (not full 85%)
 			description:           "Provisional income above $44,000",
 		},
 		{
@@ -388,7 +388,7 @@ func TestInterpolateBenefits(t *testing.T) {
 		},
 		{
 			claimingAge:     64,
-			expectedBenefit: decimal.NewFromFloat(3277.60), // Interpolated between 62 and FRA
+			expectedBenefit: decimal.NewFromFloat(3200.67), // Tiered early retirement reduction
 			description:     "Interpolated between 62 and FRA",
 		},
 		{

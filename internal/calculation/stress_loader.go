@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/rpgo/retirement-calculator/internal/domain"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
 
@@ -39,7 +41,7 @@ func LoadStressScenarioLibrary(path string) (map[string]*domain.StressScenario, 
 
 func prettifyScenarioName(key string) string {
 	key = strings.ReplaceAll(key, "_", " ")
-	return strings.Title(key)
+	return cases.Title(language.English).String(key)
 }
 
 // MergeStressScenarioSources merges inline configuration scenarios with those loaded from file.

@@ -17,6 +17,7 @@ A production-ready retirement planning suite for Federal Employees Retirement Sy
 - **SECURE 2.0 Act**: Updated RMD ages (73 for 1951-1959, 75 for 1960+)
 - **2025 Tax Brackets**: Current federal tax calculations
 - **Pennsylvania Tax Rules**: State-specific retirement income exemptions
+- **SRS Modeling Note**: The Special Retirement Supplement assumes zero earned income after the retirement date. Because the earnings test depends on wages post-retirement, users planning to keep working should manually adjust projections to reflect potential SRS reductions.
 
 ## Project Status
 

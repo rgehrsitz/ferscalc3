@@ -4,10 +4,33 @@ import (
 	"time"
 )
 
+// RetirementAge represents an age threshold expressed in years and months.
+type RetirementAge struct {
+	Years  int
+	Months int
+}
+
+// TotalMonths returns the total number of months contained in the retirement age.
+func (ra RetirementAge) TotalMonths() int {
+	return ra.Years*12 + ra.Months
+}
+
+// AddTo returns the calendar date when the retirement age is reached given a birth date.
+func (ra RetirementAge) AddTo(birthDate time.Time) time.Time {
+	return birthDate.AddDate(ra.Years, ra.Months, 0)
+}
+
+// HasReachedRetirementAge reports whether referenceDate is on or after the date when the
+// target retirement age is attained.
+func HasReachedRetirementAge(birthDate, referenceDate time.Time, target RetirementAge) bool {
+	targetDate := target.AddTo(birthDate)
+	return !referenceDate.Before(targetDate)
+}
+
 // Age calculates the age at a given date
 func Age(birthDate, atDate time.Time) int {
 	age := atDate.Year() - birthDate.Year()
-	if atDate.Month() < birthDate.Month() || 
+	if atDate.Month() < birthDate.Month() ||
 		(atDate.Month() == birthDate.Month() && atDate.Day() < birthDate.Day()) {
 		age--
 	}
@@ -27,73 +50,73 @@ func YearsOfServiceDecimal(hireDate, atDate time.Time) float64 {
 	return years
 }
 
-// FullRetirementAge calculates the Social Security Full Retirement Age based on birth year
-func FullRetirementAge(birthDate time.Time) int {
+// FullRetirementAge calculates the Social Security Full Retirement Age based on birth year.
+func FullRetirementAge(birthDate time.Time) RetirementAge {
 	birthYear := birthDate.Year()
-	
+
 	switch {
 	case birthYear <= 1937:
-		return 65
+		return RetirementAge{Years: 65}
 	case birthYear == 1938:
-		return 65 // 65 years and 2 months, rounded down
+		return RetirementAge{Years: 65, Months: 2}
 	case birthYear == 1939:
-		return 65 // 65 years and 4 months, rounded down
+		return RetirementAge{Years: 65, Months: 4}
 	case birthYear == 1940:
-		return 65 // 65 years and 6 months, rounded down
+		return RetirementAge{Years: 65, Months: 6}
 	case birthYear == 1941:
-		return 65 // 65 years and 8 months, rounded down
+		return RetirementAge{Years: 65, Months: 8}
 	case birthYear == 1942:
-		return 65 // 65 years and 10 months, rounded down
+		return RetirementAge{Years: 65, Months: 10}
 	case birthYear >= 1943 && birthYear <= 1954:
-		return 66
+		return RetirementAge{Years: 66}
 	case birthYear == 1955:
-		return 66 // 66 years and 2 months, rounded down
+		return RetirementAge{Years: 66, Months: 2}
 	case birthYear == 1956:
-		return 66 // 66 years and 4 months, rounded down
+		return RetirementAge{Years: 66, Months: 4}
 	case birthYear == 1957:
-		return 66 // 66 years and 6 months, rounded down
+		return RetirementAge{Years: 66, Months: 6}
 	case birthYear == 1958:
-		return 66 // 66 years and 8 months, rounded down
+		return RetirementAge{Years: 66, Months: 8}
 	case birthYear == 1959:
-		return 66 // 66 years and 10 months, rounded down
+		return RetirementAge{Years: 66, Months: 10}
 	default: // 1960 and later
-		return 67
+		return RetirementAge{Years: 67}
 	}
 }
 
-// MinimumRetirementAge calculates the FERS Minimum Retirement Age
-func MinimumRetirementAge(birthDate time.Time) int {
+// MinimumRetirementAge calculates the FERS Minimum Retirement Age.
+func MinimumRetirementAge(birthDate time.Time) RetirementAge {
 	birthYear := birthDate.Year()
-	
+
 	switch {
 	case birthYear <= 1947:
-		return 55
+		return RetirementAge{Years: 55}
 	case birthYear == 1948:
-		return 55 // 55 years and 2 months, rounded down
+		return RetirementAge{Years: 55, Months: 2}
 	case birthYear == 1949:
-		return 55 // 55 years and 4 months, rounded down
+		return RetirementAge{Years: 55, Months: 4}
 	case birthYear == 1950:
-		return 55 // 55 years and 6 months, rounded down
+		return RetirementAge{Years: 55, Months: 6}
 	case birthYear == 1951:
-		return 55 // 55 years and 8 months, rounded down
+		return RetirementAge{Years: 55, Months: 8}
 	case birthYear == 1952:
-		return 55 // 55 years and 10 months, rounded down
+		return RetirementAge{Years: 55, Months: 10}
 	case birthYear >= 1953 && birthYear <= 1964:
-		return 56
+		return RetirementAge{Years: 56}
 	case birthYear == 1965:
-		return 56 // 56 years and 2 months, rounded down
+		return RetirementAge{Years: 56, Months: 2}
 	case birthYear == 1966:
-		return 56 // 56 years and 4 months, rounded down
+		return RetirementAge{Years: 56, Months: 4}
 	case birthYear == 1967:
-		return 56 // 56 years and 6 months, rounded down
+		return RetirementAge{Years: 56, Months: 6}
 	case birthYear == 1968:
-		return 56 // 56 years and 8 months, rounded down
+		return RetirementAge{Years: 56, Months: 8}
 	case birthYear == 1969:
-		return 56 // 56 years and 10 months, rounded down
+		return RetirementAge{Years: 56, Months: 10}
 	case birthYear >= 1970:
-		return 57
+		return RetirementAge{Years: 57}
 	default:
-		return 57
+		return RetirementAge{Years: 57}
 	}
 }
 
@@ -106,7 +129,7 @@ func IsMedicareEligible(birthDate, atDate time.Time) bool {
 func IsRMDYear(birthDate, atDate time.Time) bool {
 	age := Age(birthDate, atDate)
 	birthYear := birthDate.Year()
-	
+
 	// SECURE 2.0 Act RMD ages
 	switch {
 	case birthYear <= 1950:
@@ -173,4 +196,4 @@ func EndOfYear(date time.Time) time.Time {
 // BeginningOfYear returns the first day of the year for a given date
 func BeginningOfYear(date time.Time) time.Time {
 	return time.Date(date.Year(), 1, 1, 0, 0, 0, 0, date.Location())
-} 
+}

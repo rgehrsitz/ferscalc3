@@ -11,7 +11,7 @@ import (
 // SocialSecurityCalculator handles Social Security benefit calculations
 type SocialSecurityCalculator struct {
 	BirthYear         int
-	FullRetirementAge int
+	FullRetirementAge dateutil.RetirementAge
 	BenefitAtFRA      decimal.Decimal
 }
 
@@ -30,9 +30,12 @@ func (ssc *SocialSecurityCalculator) CalculateBenefitAtAge(claimingAge int) deci
 		return decimal.Zero
 	}
 
-	if claimingAge < ssc.FullRetirementAge {
+	fullRetirementMonths := ssc.FullRetirementAge.TotalMonths()
+	claimingMonths := claimingAge * 12
+
+	if claimingMonths < fullRetirementMonths {
 		// Early retirement reduction
-		monthsEarly := (ssc.FullRetirementAge - claimingAge) * 12
+		monthsEarly := fullRetirementMonths - claimingMonths
 		var reductionRate decimal.Decimal
 
 		if monthsEarly <= 36 {
@@ -49,9 +52,9 @@ func (ssc *SocialSecurityCalculator) CalculateBenefitAtAge(claimingAge int) deci
 		return ssc.BenefitAtFRA.Mul(decimal.NewFromFloat(1).Sub(reductionRate))
 	}
 
-	if claimingAge > ssc.FullRetirementAge {
+	if claimingMonths > fullRetirementMonths {
 		// Delayed retirement credits: 8% per year (2/3% per month)
-		monthsDelayed := (claimingAge - ssc.FullRetirementAge) * 12
+		monthsDelayed := claimingMonths - fullRetirementMonths
 		if monthsDelayed > 48 { // Cap at age 70
 			monthsDelayed = 48
 		}
@@ -116,50 +119,50 @@ func NewSSTaxCalculator() *SSTaxCalculator {
 // - Provisional Income > $32,000 and <= $44,000: Up to 50% of SS benefits are taxable
 // - Provisional Income > $44,000: Up to 85% of SS benefits are taxable
 func (sstc *SSTaxCalculator) CalculateTaxableSocialSecurity(totalSSBenefitAnnual decimal.Decimal, provisionalIncome decimal.Decimal) decimal.Decimal {
-	threshold1 := decimal.NewFromInt(32000)
-	threshold2 := decimal.NewFromInt(44000)
-
-	if provisionalIncome.LessThanOrEqual(threshold1) {
-		return decimal.Zero
-	} else if provisionalIncome.LessThanOrEqual(threshold2) {
-		// Taxable amount is the lesser of:
-		// 1. 50% of (Provisional Income - Threshold 1)
-		// 2. 50% of Total SS Benefit
-		taxablePart1 := provisionalIncome.Sub(threshold1).Mul(decimal.NewFromFloat(0.5))
-		taxablePart2 := totalSSBenefitAnnual.Mul(decimal.NewFromFloat(0.5))
-		return decimal.Min(taxablePart1, taxablePart2)
-	} else { // Provisional Income > Threshold 2
-		// For very high provisional income, use simplified approach:
-		// Most high-income retirees end up with 85% of benefits being taxable
-		// This matches the test expectations and is a reasonable approximation
-		return totalSSBenefitAnnual.Mul(decimal.NewFromFloat(0.85))
-	}
+	return calculateTaxableSocialSecurityWithThresholds(
+		totalSSBenefitAnnual,
+		provisionalIncome,
+		decimal.NewFromInt(32000),
+		decimal.NewFromInt(44000),
+	)
 }
 
 // CalculateTaxableSocialSecuritySingle determines the federally taxable portion for single filers
 func (sstc *SSTaxCalculator) CalculateTaxableSocialSecuritySingle(totalSSBenefitAnnual decimal.Decimal, provisionalIncome decimal.Decimal) decimal.Decimal {
-	threshold1 := decimal.NewFromInt(25000)
-	threshold2 := decimal.NewFromInt(34000)
+	return calculateTaxableSocialSecurityWithThresholds(
+		totalSSBenefitAnnual,
+		provisionalIncome,
+		decimal.NewFromInt(25000),
+		decimal.NewFromInt(34000),
+	)
+}
 
+func calculateTaxableSocialSecurityWithThresholds(totalSSBenefitAnnual, provisionalIncome, threshold1, threshold2 decimal.Decimal) decimal.Decimal {
 	if provisionalIncome.LessThanOrEqual(threshold1) {
 		return decimal.Zero
-	} else if provisionalIncome.GreaterThan(threshold1) && provisionalIncome.LessThanOrEqual(threshold2) {
-		// Taxable amount is the lesser of:
-		// 1. 50% of (Provisional Income - Threshold 1)
-		// 2. 50% of Total SS Benefit
-		taxablePart1 := provisionalIncome.Sub(threshold1).Mul(decimal.NewFromFloat(0.5))
-		taxablePart2 := totalSSBenefitAnnual.Mul(decimal.NewFromFloat(0.5))
-		return decimal.Min(taxablePart1, taxablePart2)
-	} else { // Provisional Income > Threshold 2
-		// Taxable amount is the lesser of:
-		// 1. 85% of (Provisional Income - Threshold 2) + Lesser of (50% of Threshold 2 - Threshold 1) or 50% of SS
-		// 2. 85% of Total SS Benefit
-		taxableAmountA := totalSSBenefitAnnual.Mul(decimal.NewFromFloat(0.85))
-		taxableAmountB := provisionalIncome.Sub(threshold2).Mul(decimal.NewFromFloat(0.85)).Add(
-			decimal.NewFromFloat(0.5).Mul(threshold2.Sub(threshold1)),
-		)
-		return decimal.Min(taxableAmountA, taxableAmountB)
 	}
+
+	halfBenefit := totalSSBenefitAnnual.Mul(decimal.NewFromFloat(0.5))
+	excessOverFirst := provisionalIncome.Sub(threshold1)
+	halfExcess := excessOverFirst.Mul(decimal.NewFromFloat(0.5))
+
+	if provisionalIncome.LessThanOrEqual(threshold2) {
+		return decimal.Min(halfExcess, halfBenefit)
+	}
+
+	// Above the second threshold: IRS worksheet logic
+	basePortion := decimal.Min(
+		halfBenefit,
+		threshold2.Sub(threshold1).Mul(decimal.NewFromFloat(0.5)),
+	)
+
+	excessOverSecond := provisionalIncome.Sub(threshold2)
+	additionalPortion := excessOverSecond.Mul(decimal.NewFromFloat(0.85))
+
+	candidate := basePortion.Add(additionalPortion)
+	maxTaxable := totalSSBenefitAnnual.Mul(decimal.NewFromFloat(0.85))
+
+	return decimal.Min(candidate, maxTaxable)
 }
 
 // CalculateProvisionalIncome calculates the provisional income for Social Security taxation
@@ -174,42 +177,153 @@ func InterpolateSSBenefit(benefit62, benefitFRA, benefit70 decimal.Decimal, clai
 
 	if claimingAge <= 62 {
 		return benefit62
-	} else if claimingAge == fra {
-		return benefitFRA
-	} else if claimingAge >= 70 {
-		return benefit70
-	} else if claimingAge < fra {
-		// Interpolate between 62 and FRA
-		monthsBetween := (claimingAge - 62) * 12
-		totalMonths := (fra - 62) * 12
-		ratio := decimal.NewFromInt(int64(monthsBetween)).Div(decimal.NewFromInt(int64(totalMonths)))
-		return benefit62.Add(benefitFRA.Sub(benefit62).Mul(ratio))
-	} else {
-		// Interpolate between FRA and 70
-		monthsBetween := (claimingAge - fra) * 12
-		totalMonths := (70 - fra) * 12
-		ratio := decimal.NewFromInt(int64(monthsBetween)).Div(decimal.NewFromInt(int64(totalMonths)))
-		return benefitFRA.Add(benefit70.Sub(benefitFRA).Mul(ratio))
 	}
+	if claimingAge >= 70 {
+		return benefit70
+	}
+	if claimingAge == fra {
+		return benefitFRA
+	}
+
+	if claimingAge < fra {
+		monthsEarly := (fra - claimingAge) * 12
+		reduction := scaledEarlyRetirementReduction(monthsEarly, benefit62, benefitFRA, fra)
+		factor := decimal.NewFromInt(1).Sub(reduction)
+		interpolated := benefitFRA.Mul(factor)
+		if interpolated.LessThan(benefit62) {
+			return benefit62
+		}
+		if interpolated.GreaterThan(benefitFRA) {
+			return benefitFRA
+		}
+		return interpolated
+	}
+
+	monthsDelayed := (claimingAge - fra) * 12
+	increase := scaledDelayedRetirementIncrease(monthsDelayed, benefit70, benefitFRA, fra)
+	factor := decimal.NewFromInt(1).Add(increase)
+	interpolated := benefitFRA.Mul(factor)
+	if interpolated.GreaterThan(benefit70) {
+		return benefit70
+	}
+	if interpolated.LessThan(benefitFRA) {
+		return benefitFRA
+	}
+	return interpolated
+}
+
+func scaledEarlyRetirementReduction(monthsEarly int, benefit62, benefitFRA decimal.Decimal, fra int) decimal.Decimal {
+	if monthsEarly <= 0 || benefitFRA.IsZero() {
+		return decimal.Zero
+	}
+	totalMonths := (fra - 62) * 12
+	ssaReduction := ssEarlyReductionRate(monthsEarly)
+	totalSSA := ssEarlyReductionRate(totalMonths)
+	if totalSSA.IsZero() {
+		return decimal.Zero
+	}
+
+	actualTotalReduction := decimal.NewFromInt(1)
+	if !benefitFRA.IsZero() {
+		actualTotalReduction = actualTotalReduction.Sub(benefit62.Div(benefitFRA))
+	}
+	if actualTotalReduction.IsNegative() {
+		actualTotalReduction = decimal.Zero
+	}
+	if actualTotalReduction.IsZero() {
+		return decimal.Zero
+	}
+
+	scale := actualTotalReduction.Div(totalSSA)
+	return ssaReduction.Mul(scale)
+}
+
+func scaledDelayedRetirementIncrease(monthsDelayed int, benefit70, benefitFRA decimal.Decimal, fra int) decimal.Decimal {
+	if monthsDelayed <= 0 || benefitFRA.IsZero() {
+		return decimal.Zero
+	}
+	maxMonths := (70 - fra) * 12
+	if monthsDelayed > maxMonths {
+		monthsDelayed = maxMonths
+	}
+
+	ssaIncrease := ssDelayedIncreaseRate(monthsDelayed)
+	totalSSA := ssDelayedIncreaseRate(maxMonths)
+	if totalSSA.IsZero() {
+		return decimal.Zero
+	}
+
+	actualTotalIncrease := decimal.Zero
+	if !benefitFRA.IsZero() {
+		actualTotalIncrease = benefit70.Div(benefitFRA).Sub(decimal.NewFromInt(1))
+	}
+	if actualTotalIncrease.IsNegative() {
+		actualTotalIncrease = decimal.Zero
+	}
+	if actualTotalIncrease.IsZero() {
+		return decimal.Zero
+	}
+
+	scale := actualTotalIncrease.Div(totalSSA)
+	return ssaIncrease.Mul(scale)
+}
+
+func ssEarlyReductionRate(months int) decimal.Decimal {
+	if months <= 0 {
+		return decimal.Zero
+	}
+	firstTierMonths := months
+	if firstTierMonths > 36 {
+		firstTierMonths = 36
+	}
+	secondTierMonths := 0
+	if months > 36 {
+		secondTierMonths = months - 36
+	}
+
+	rateFirst := decimal.NewFromFloat(5.0 / 9.0 / 100.0)
+	rateSecond := decimal.NewFromFloat(5.0 / 12.0 / 100.0)
+
+	reduction := rateFirst.Mul(decimal.NewFromInt(int64(firstTierMonths)))
+	if secondTierMonths > 0 {
+		reduction = reduction.Add(rateSecond.Mul(decimal.NewFromInt(int64(secondTierMonths))))
+	}
+	return reduction
+}
+
+func ssDelayedIncreaseRate(months int) decimal.Decimal {
+	if months <= 0 {
+		return decimal.Zero
+	}
+	rate := decimal.NewFromFloat(2.0 / 3.0 / 100.0)
+	return rate.Mul(decimal.NewFromInt(int64(months)))
 }
 
 // CalculateSurvivorSSBenefit computes the survivor benefit based on deceased primary benefit and survivor age.
 // Simplified FERS/SS rule: Survivor can receive up to 100% of deceased's benefit if at or after survivor FRA.
 // Early survivor reduction: approximately 28.5% maximum reduction if claimed at 60 (i.e. 71.5% of full).
 // We interpolate linearly between age 60 (71.5%) and survivor FRA (~67).
-func CalculateSurvivorSSBenefit(deceasedCurrent decimal.Decimal, survivorAge int, survivorFRA int) decimal.Decimal {
+func CalculateSurvivorSSBenefit(deceasedCurrent decimal.Decimal, survivorAgeYears int, survivorFRA dateutil.RetirementAge) decimal.Decimal {
 	if deceasedCurrent.LessThanOrEqual(decimal.Zero) {
 		return decimal.Zero
 	}
-	if survivorAge >= survivorFRA {
+	fraMonths := survivorFRA.TotalMonths()
+	survivorMonths := survivorAgeYears * 12
+	if survivorMonths >= fraMonths {
 		return deceasedCurrent
 	}
-	if survivorAge < 60 {
+	if survivorAgeYears < 60 {
 		return decimal.Zero
 	} // not yet eligible (simplified, ignoring child-in-care cases)
 	// Linear interpolation from 60 -> FRA: factor from 0.715 -> 1.0
-	totalMonths := (survivorFRA - 60) * 12
-	monthsFrom60 := (survivorAge - 60) * 12
+	totalMonths := fraMonths - 60*12
+	if totalMonths <= 0 {
+		return deceasedCurrent
+	}
+	monthsFrom60 := survivorMonths - 60*12
+	if monthsFrom60 < 0 {
+		monthsFrom60 = 0
+	}
 	ratio := decimal.NewFromInt(int64(monthsFrom60)).Div(decimal.NewFromInt(int64(totalMonths)))
 	minFactor := decimal.NewFromFloat(0.715)
 	factor := minFactor.Add(decimal.NewFromFloat(1.0).Sub(minFactor).Mul(ratio))

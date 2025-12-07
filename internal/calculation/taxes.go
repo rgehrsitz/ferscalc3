@@ -168,15 +168,16 @@ func (ptc *PennsylvaniaTaxCalculator) CalculateTax(income domain.TaxableIncome, 
 
 // NewJerseyTaxCalculator handles New Jersey state tax calculations
 type NewJerseyTaxCalculator struct {
-	// For simplicity in this phase, we might use a single effective rate or a simplified bracket set
-	// NJ has progressive rates from 1.4% to 10.75%
-	// NJ excludes SS.
-	// NJ has a pension exclusion for those 62+ with income <= $150k (phased out)
+	pensionExclusionIncomeLimit decimal.Decimal
+	maxPensionExclusion         decimal.Decimal
 }
 
 // NewNewJerseyTaxCalculator creates a new NJ tax calculator
 func NewNewJerseyTaxCalculator() *NewJerseyTaxCalculator {
-	return &NewJerseyTaxCalculator{}
+	return &NewJerseyTaxCalculator{
+		pensionExclusionIncomeLimit: decimal.NewFromInt(150000),
+		maxPensionExclusion:         decimal.NewFromInt(100000),
+	}
 }
 
 // CalculateTax calculates New Jersey state income tax
@@ -189,6 +190,20 @@ func (njtc *NewJerseyTaxCalculator) CalculateTax(income domain.TaxableIncome, is
 
 	// Taxable base: Salary + Pension + TSP + Other (SS is exempt)
 	taxableIncome := income.Salary.Add(income.FERSPension).Add(income.TSPWithdrawalsTrad).Add(income.OtherTaxableIncome)
+
+	// Apply pension exclusion when the household meets NJ criteria (62+ retirees with income <= 150k).
+	// We approximate eligibility using the provided isRetired flag.
+	if isRetired {
+		retirementIncome := income.FERSPension.Add(income.TSPWithdrawalsTrad)
+		totalIncome := taxableIncome
+		if totalIncome.LessThanOrEqual(njtc.pensionExclusionIncomeLimit) && retirementIncome.GreaterThan(decimal.Zero) {
+			exclusion := decimal.Min(retirementIncome, njtc.maxPensionExclusion)
+			taxableIncome = taxableIncome.Sub(exclusion)
+			if taxableIncome.IsNegative() {
+				taxableIncome = decimal.Zero
+			}
+		}
+	}
 
 	// Simple progressive brackets (approximate for 2024/2025)
 	// 0 - 20k: 1.4%
