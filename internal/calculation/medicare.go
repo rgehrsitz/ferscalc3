@@ -9,8 +9,9 @@ import (
 
 // MedicareCalculator handles Medicare Part B premium calculations including IRMAA
 type MedicareCalculator struct {
-	BasePremium2025 decimal.Decimal
-	IRMAAThresholds []IRMAAThreshold
+	BasePremium2025      decimal.Decimal
+	PremiumInflationRate decimal.Decimal
+	IRMAAThresholds      []IRMAAThreshold
 }
 
 // IRMAAThreshold represents an IRMAA income threshold and corresponding surcharge
@@ -23,7 +24,8 @@ type IRMAAThreshold struct {
 // NewMedicareCalculator creates a new Medicare calculator with 2025 rates
 func NewMedicareCalculator() *MedicareCalculator {
 	return &MedicareCalculator{
-		BasePremium2025: decimal.NewFromFloat(185.00), // 2025 base Part B premium
+		BasePremium2025:      decimal.NewFromFloat(185.00), // 2025 base Part B premium
+		PremiumInflationRate: decimal.NewFromFloat(0.055),
 		IRMAAThresholds: []IRMAAThreshold{
 			// 2025 IRMAA thresholds (based on 2023 MAGI)
 			{
@@ -57,26 +59,32 @@ func NewMedicareCalculator() *MedicareCalculator {
 
 // NewMedicareCalculatorWithConfig creates a new Medicare calculator with configurable values
 func NewMedicareCalculatorWithConfig(config domain.MedicareConfig) *MedicareCalculator {
-	// If the provided config is empty (zero values), fall back to sane defaults
-	// so that missing `federal_rules.medicare_config` in user configs does not
-	// result in zero Medicare premiums in reports.
-	if config.BasePremium2025.IsZero() && len(config.IRMAAThresholds) == 0 {
-		return NewMedicareCalculator()
-	}
-	// Convert domain.MedicareIRMAAThreshold to calculation.IRMAAThreshold
-	var thresholds []IRMAAThreshold
-	for _, threshold := range config.IRMAAThresholds {
-		thresholds = append(thresholds, IRMAAThreshold{
-			IncomeThresholdSingle: threshold.IncomeThresholdSingle,
-			IncomeThresholdJoint:  threshold.IncomeThresholdJoint,
-			MonthlySurcharge:      threshold.MonthlySurcharge,
-		})
+	defaultCalc := NewMedicareCalculator()
+	calc := &MedicareCalculator{
+		BasePremium2025:      defaultCalc.BasePremium2025,
+		PremiumInflationRate: defaultCalc.PremiumInflationRate,
+		IRMAAThresholds:      append([]IRMAAThreshold(nil), defaultCalc.IRMAAThresholds...),
 	}
 
-	return &MedicareCalculator{
-		BasePremium2025: config.BasePremium2025,
-		IRMAAThresholds: thresholds,
+	if !config.BasePremium2025.IsZero() {
+		calc.BasePremium2025 = config.BasePremium2025
 	}
+	if !config.PremiumInflationRate.IsZero() {
+		calc.PremiumInflationRate = config.PremiumInflationRate
+	}
+	if len(config.IRMAAThresholds) > 0 {
+		var thresholds []IRMAAThreshold
+		for _, threshold := range config.IRMAAThresholds {
+			thresholds = append(thresholds, IRMAAThreshold{
+				IncomeThresholdSingle: threshold.IncomeThresholdSingle,
+				IncomeThresholdJoint:  threshold.IncomeThresholdJoint,
+				MonthlySurcharge:      threshold.MonthlySurcharge,
+			})
+		}
+		calc.IRMAAThresholds = thresholds
+	}
+
+	return calc
 }
 
 // CalculatePartBPremium calculates Medicare Part B premium including IRMAA surcharge
@@ -150,9 +158,8 @@ func (mc *MedicareCalculator) CalculateMedicarePremiumWithInflation(estimatedMAG
 	baseAnnualCost := mc.CalculateAnnualPartBCost(estimatedMAGI, isMarriedFilingJointly)
 
 	// Apply inflation adjustment (Medicare premiums typically increase faster than general inflation)
-	// Medicare Part B premiums have increased by about 5-6% annually historically
-	medicareInflationRate := decimal.NewFromFloat(0.055) // 5.5% annual increase
-	inflationFactor := decimal.NewFromFloat(1).Add(medicareInflationRate).Pow(decimal.NewFromInt(int64(yearsFrom2025)))
+	medicareInflationRate := mc.PremiumInflationRate
+	inflationFactor := decimal.NewFromInt(1).Add(medicareInflationRate).Pow(decimal.NewFromInt(int64(yearsFrom2025)))
 
 	adjustedAnnualCost := baseAnnualCost.Mul(inflationFactor)
 

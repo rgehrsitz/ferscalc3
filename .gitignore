@@ -47,3 +47,10 @@ internal/output/retirement_report_*.json
 *.dll
 *.so
 *.dylib
+retirement_report_20251207_164552.html
+retirement_report_20251207_164923.json
+.gitignore
+retirement_report_20251207_164939.json
+.gitignore
+retirement_report_20251207_170626.csv
+retirement_report_20251207_164957.json

@@ -233,16 +233,24 @@ scenarios:
       retirement_date: "2028-12-31"
       ss_start_age: 62
       tsp_withdrawal_strategy: "4_percent_rule"
-```
 
-### Modeling Non-Federal Spouses & Fixed Income Streams
+### Medicare premium inflation guidance
 
-- Set `employment_type: "non-federal"` for any civilian spouse. Non-federal employees skip FERS pension/TSP accrual logic automatically but still participate in projections and taxes.
-- Provide optional `fixed_retirement_income` blocks on either the employee profile or individual scenarios to model constant pensions, annuities, or other outside income. Scenario-level values override the profile block.
+| Scenario | Rate | Notes |
+| --- | --- | --- |
+| Moderate / Baseline | **5.5%** | Matches the ~5.5% compound annual growth rate for Part B premiums from 2005–2024. |
+| Conservative / Safer | **6.5%** | Captures volatility seen in years like 2022 (+14.5%). Useful for stress-testing. |
+| Aggressive / Optimistic | **3.5–4%** | Only use if you expect Medicare cost growth to fall near general CPI; most planners consider this risky. |
+
+Set `federal_rules.medicare_config.premium_inflation_rate` to one of these values to tailor projections. If omitted, the calculator falls back to 5.5%.
+
+## Configuration File Format
+
+The calculator uses YAML configuration files. Here's an example structure:
 
 ```yaml
 personal_details:
-  person_b:
+  person_a:
     employment_type: "non-federal"
     fixed_retirement_income:
       annual_amount: "24000"
@@ -253,6 +261,15 @@ scenarios:
     person_b:
       fixed_retirement_income:
         annual_amount: "30000"  # override for this scenario only
+
+federal_rules:
+  medicare_config:
+    base_premium_2025: "185.00"           # 2025 base Part B premium
+    premium_inflation_rate: "0.055"       # Recommended default (see table below)
+    irmaa_thresholds:
+      - income_threshold_single: "103000"  # First IRMAA tier (single)
+        income_threshold_joint: "206000"   # First IRMAA tier (MFJ)
+        monthly_surcharge: "69.90"         # Additional monthly premium
 ```
 
 ## Calculation Details
@@ -281,7 +298,7 @@ For **deterministic calculations**, both approaches work equivalently:
 For **Monte Carlo simulations**, use **manual TSP allocations** for proper market variability:
 
 ```yaml
-# ✅ Recommended for Monte Carlo
+# Recommended for Monte Carlo
 tsp_allocation:
   c_fund: "0.60"  # 60% C Fund
   s_fund: "0.20"  # 20% S Fund
@@ -289,7 +306,7 @@ tsp_allocation:
   f_fund: "0.10"  # 10% F Fund (Fixed Income Index)
   g_fund: "0.00"  # 0% G Fund (Government Securities)
 
-# ❌ Avoid for Monte Carlo (produces identical results)
+# Avoid for Monte Carlo (produces identical results)
 # tsp_lifecycle_fund:
 #   fund_name: "L2030"
 ```
@@ -412,8 +429,15 @@ rpgo/
 ├── internal/
 │   ├── domain/             # Core domain models
 │   ├── calculation/        # Calculation engines
-│   ├── config/             # Configuration parsing
-│   └── output/             # Report generation
+│   ├── config/         # Medicare Part B premium configuration - 2025 values
+    # Source: Centers for Medicare & Medicaid Services (CMS)
+    medicare_config:
+      base_premium_2025: "185.00"           # 2025 base Part B premium
+      premium_inflation_rate: "0.055"       # Recommended default (see table below)
+      irmaa_thresholds:
+        - income_threshold_single: "103000"  # First IRMAA tier (single)
+          income_threshold_joint: "206000"   # First IRMAA tier (MFJ)
+          monthly_surcharge: "69.90"         # Additional monthly premium
 ├── pkg/
 │   ├── decimal/            # Financial precision utilities
 │   └── dateutil/           # Date calculation utilities

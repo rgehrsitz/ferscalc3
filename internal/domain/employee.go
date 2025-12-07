@@ -422,6 +422,9 @@ type MedicareConfig struct {
 	// Base Part B premium
 	BasePremium2025 decimal.Decimal `yaml:"base_premium_2025" json:"base_premium_2025"` // Default: 185.00 (2025)
 
+	// Annual premium inflation rate applied when projecting future costs
+	PremiumInflationRate decimal.Decimal `yaml:"premium_inflation_rate" json:"premium_inflation_rate"` // Default: 0.055 (5.5%)
+
 	// IRMAA (Income-Related Monthly Adjustment Amount) thresholds
 	IRMAAThresholds []MedicareIRMAAThreshold `yaml:"irmaa_thresholds" json:"irmaa_thresholds"`
 }
