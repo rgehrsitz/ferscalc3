@@ -29,11 +29,13 @@ type AnnualCashFlow struct {
 	TotalGrossIncome       decimal.Decimal `json:"total_gross_income"`
 
 	// Deductions and Taxes
-	FederalTax               decimal.Decimal `json:"federal_tax"`
-	FederalTaxableIncome     decimal.Decimal `json:"federal_taxable_income"`
-	FederalStandardDeduction decimal.Decimal `json:"federal_standard_deduction"`
-	FederalFilingStatus      string          `json:"federal_filing_status"`
-	FederalSeniors65Plus     int             `json:"federal_seniors_65_plus"`
+	FederalTax               decimal.Decimal    `json:"federal_tax"`
+	FederalGrossIncome       decimal.Decimal    `json:"federal_gross_income"` // Sum of all taxable income sources (before standard deduction)
+	FederalAGI               decimal.Decimal    `json:"federal_agi"`          // Adjusted Gross Income (after standard deduction)
+	FederalStandardDeduction decimal.Decimal    `json:"federal_standard_deduction"`
+	FederalFilingStatus      string             `json:"federal_filing_status"`
+	FederalSeniors65Plus     int                `json:"federal_seniors_65_plus"`
+	FederalTaxBrackets       []TaxBracketDetail `json:"federal_tax_brackets"` // Breakdown of income by tax bracket
 	StateTax                 decimal.Decimal `json:"state_tax"`
 	LocalTax                 decimal.Decimal `json:"local_tax"`
 	FICATax                  decimal.Decimal `json:"fica_tax"`
@@ -183,6 +185,16 @@ type TaxableIncome struct {
 	OtherTaxableIncome decimal.Decimal `json:"other_taxable_income"`
 	WageIncome         decimal.Decimal `json:"wage_income"`
 	InterestIncome     decimal.Decimal `json:"interest_income"`
+}
+
+// TaxBracketDetail represents the amount of income taxed at a specific bracket
+type TaxBracketDetail struct {
+	BracketMin      decimal.Decimal `json:"bracket_min"`       // Lower bound of bracket (inflation-adjusted)
+	BracketMax      decimal.Decimal `json:"bracket_max"`       // Upper bound of bracket (inflation-adjusted)
+	Rate            decimal.Decimal `json:"rate"`              // Tax rate for this bracket
+	IncomeInBracket decimal.Decimal `json:"income_in_bracket"` // Amount of income taxed at this rate
+	TaxFromBracket  decimal.Decimal `json:"tax_from_bracket"`  // Tax amount from this bracket
+	RoomInBracket   decimal.Decimal `json:"room_in_bracket"`   // Remaining capacity before hitting next bracket
 }
 
 // CalculateTotalIncome calculates the total gross income for the year

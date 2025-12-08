@@ -3,9 +3,12 @@ package output
 import (
 	"bytes"
 	"encoding/csv"
+	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/rpgo/retirement-calculator/internal/domain"
+	"github.com/shopspring/decimal"
 )
 
 // CSVDetailedExporter provides raw annual projection detail per scenario/year.
@@ -37,9 +40,13 @@ func (c CSVDetailedExporter) Format(results *domain.ScenarioComparison) ([]byte,
 		"FERSSupplementPersonA",
 		"FERSSupplementPersonB",
 		"TotalGrossIncome",
-		"FederalTaxableIncome",
+		"FederalGrossIncome",
+		"FederalAGI",
 		"FederalStandardDeduction",
 		"FederalTax",
+		"TaxBracketSummary",
+		"TopMarginalRate",
+		"RoomInTopBracket",
 		"StateTax",
 		"LocalTax",
 		"FICATax",
@@ -72,6 +79,9 @@ func (c CSVDetailedExporter) Format(results *domain.ScenarioComparison) ([]byte,
 
 	for _, sc := range scenarios {
 		for _, yr := range sc.Projection {
+			// Generate tax bracket summary
+			bracketSummary, topRate, roomInTop := formatTaxBracketSummary(yr.FederalTaxBrackets)
+
 			row := []string{
 				sc.Name,
 				intToString(yr.Year),
@@ -91,9 +101,13 @@ func (c CSVDetailedExporter) Format(results *domain.ScenarioComparison) ([]byte,
 				yr.FERSSupplementPersonA.StringFixed(2),
 				yr.FERSSupplementPersonB.StringFixed(2),
 				yr.TotalGrossIncome.StringFixed(2),
-				yr.FederalTaxableIncome.StringFixed(2),
+				yr.FederalGrossIncome.StringFixed(2),
+				yr.FederalAGI.StringFixed(2),
 				yr.FederalStandardDeduction.StringFixed(2),
 				yr.FederalTax.StringFixed(2),
+				bracketSummary,
+				topRate,
+				roomInTop,
 				yr.StateTax.StringFixed(2),
 				yr.LocalTax.StringFixed(2),
 				yr.FICATax.StringFixed(2),
@@ -125,4 +139,28 @@ func (c CSVDetailedExporter) Format(results *domain.ScenarioComparison) ([]byte,
 
 	w.Flush()
 	return buf.Bytes(), nil
+}
+
+// formatTaxBracketSummary creates a compact summary of tax brackets for CSV output
+// Returns: (bracketSummary, topMarginalRate, roomInTopBracket)
+func formatTaxBracketSummary(brackets []domain.TaxBracketDetail) (string, string, string) {
+	if len(brackets) == 0 {
+		return "", "0%", "0.00"
+	}
+
+	// Create a compact summary showing each bracket's rate and income
+	var parts []string
+	hundred := decimal.NewFromInt(100)
+	for _, b := range brackets {
+		ratePercent := b.Rate.Mul(hundred).StringFixed(0)
+		incomeInBracket := b.IncomeInBracket.StringFixed(0)
+		parts = append(parts, fmt.Sprintf("%s%%:$%s", ratePercent, incomeInBracket))
+	}
+
+	// Get the top marginal rate (last bracket used)
+	topBracket := brackets[len(brackets)-1]
+	topRate := topBracket.Rate.Mul(hundred).StringFixed(0) + "%"
+	roomInTop := topBracket.RoomInBracket.StringFixed(2)
+
+	return strings.Join(parts, " | "), topRate, roomInTop
 }

@@ -176,9 +176,11 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 		localTax := taxResult.LocalTax
 		ficaTax := taxResult.FICATax
 		taxableTotal := taxResult.TaxableIncomeTotal
+		agi := taxResult.AGI
 		stdDedUsed := taxResult.StandardDeduction
 		filingStatusUsed := taxResult.FilingStatus
 		seniors65 := taxResult.Seniors
+		taxBrackets := taxResult.TaxBrackets
 
 		tspContributions := decimal.Zero
 		if (!yearResults[0].isRetired || !yearResults[1].isRetired) && !(personStates[0].deceased || personStates[1].deceased) {
@@ -205,10 +207,12 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 			WorkFractionPersonA:      yearResults[0].workFraction,
 			WorkFractionPersonB:      yearResults[1].workFraction,
 			FederalTax:               federalTax,
-			FederalTaxableIncome:     taxableTotal,
+			FederalGrossIncome:       taxableTotal,
+			FederalAGI:               agi,
 			FederalStandardDeduction: stdDedUsed,
 			FederalFilingStatus:      filingStatusUsed,
 			FederalSeniors65Plus:     seniors65,
+			FederalTaxBrackets:       taxBrackets,
 			StateTax:                 stateTax,
 			LocalTax:                 localTax,
 			FICATax:                  ficaTax,

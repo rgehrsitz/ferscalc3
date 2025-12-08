@@ -239,12 +239,12 @@ scenarios:
       retirement_date: "2026-02-28T00:00:00Z"
       ss_start_age: 62
       tsp_withdrawal_strategy: "variable_percentage"
-      tsp_withdrawal_rate: "0.04" 
+      tsp_withdrawal_rate: "0.05" 
     person_b:
       employee_name: "Dawn"
       retirement_date: "2025-08-30T00:00:00Z"
       ss_start_age: 62
       tsp_withdrawal_strategy: "variable_percentage"
-      tsp_withdrawal_rate: "0.04" 
+      tsp_withdrawal_rate: "0.05" 
       
       

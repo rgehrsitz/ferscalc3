@@ -500,6 +500,12 @@ func (ctc *ComprehensiveTaxCalculator) calculateFederalTaxWithInflation(taxableI
 
 // calculateFederalTaxWithStatus allows specifying filing status ("mfj" or "single") and number of seniors 65+.
 func (ctc *ComprehensiveTaxCalculator) calculateFederalTaxWithStatus(agiComponents domain.TaxableIncome, filingStatus string, seniors, projectionYear int) decimal.Decimal {
+	tax, _, _ := ctc.calculateFederalTaxWithDetails(agiComponents, filingStatus, seniors, projectionYear)
+	return tax
+}
+
+// calculateFederalTaxWithDetails calculates federal tax and returns detailed bracket breakdown
+func (ctc *ComprehensiveTaxCalculator) calculateFederalTaxWithDetails(agiComponents domain.TaxableIncome, filingStatus string, seniors, projectionYear int) (decimal.Decimal, decimal.Decimal, []domain.TaxBracketDetail) {
 	totalIncome := agiComponents.Salary.Add(agiComponents.FERSPension).Add(agiComponents.TSPWithdrawalsTrad).Add(agiComponents.TaxableSSBenefits).Add(agiComponents.OtherTaxableIncome)
 
 	// Standard deduction based on filing status
@@ -530,25 +536,46 @@ func (ctc *ComprehensiveTaxCalculator) calculateFederalTaxWithStatus(agiComponen
 	if agi.LessThan(decimal.Zero) {
 		agi = decimal.Zero
 	}
+
 	remaining := agi
 	tax := decimal.Zero
+	var bracketDetails []domain.TaxBracketDetail
+
 	for _, b := range brackets {
 		adjMin := b.Min.Mul(inflationAdjustment)
 		adjMax := b.Max.Mul(inflationAdjustment)
+
 		if remaining.LessThanOrEqual(decimal.Zero) {
 			break
 		}
+
 		width := adjMax.Sub(adjMin)
 		if width.LessThanOrEqual(decimal.Zero) {
 			continue
 		}
+
 		incomeInBracket := decimal.Min(remaining, width)
 		if agi.GreaterThan(adjMin) && incomeInBracket.GreaterThan(decimal.Zero) {
-			tax = tax.Add(incomeInBracket.Mul(b.Rate))
+			taxFromBracket := incomeInBracket.Mul(b.Rate)
+			tax = tax.Add(taxFromBracket)
+
+			// Calculate remaining room in this bracket
+			roomInBracket := width.Sub(incomeInBracket)
+
+			bracketDetails = append(bracketDetails, domain.TaxBracketDetail{
+				BracketMin:      adjMin,
+				BracketMax:      adjMax,
+				Rate:            b.Rate,
+				IncomeInBracket: incomeInBracket,
+				TaxFromBracket:  taxFromBracket,
+				RoomInBracket:   roomInBracket,
+			})
+
 			remaining = remaining.Sub(incomeInBracket)
 		}
 	}
-	return tax
+
+	return tax, agi, bracketDetails
 }
 
 // CalculateTaxableIncome creates a TaxableIncome struct from cash flow data
@@ -599,9 +626,11 @@ type TaxCalculationResult struct {
 	LocalTax           decimal.Decimal
 	FICATax            decimal.Decimal
 	TaxableIncomeTotal decimal.Decimal
+	AGI                decimal.Decimal
 	StandardDeduction  decimal.Decimal
 	FilingStatus       string
 	Seniors            int
+	TaxBrackets        []domain.TaxBracketDetail
 }
 
 // CalculateSocialSecurityTaxation calculates the taxable portion of Social Security benefits
@@ -639,9 +668,11 @@ func (ce *CalculationEngine) calculateTaxes(input TaxCalculationInput) TaxCalcul
 		LocalTax:           result.local,
 		FICATax:            result.fica,
 		TaxableIncomeTotal: result.taxableTotal,
+		AGI:                result.agi,
 		StandardDeduction:  result.standardDeduction,
 		FilingStatus:       result.filingStatus,
 		Seniors:            result.seniors,
+		TaxBrackets:        result.brackets,
 	}
 }
 
@@ -651,9 +682,11 @@ type taxResult struct {
 	local             decimal.Decimal
 	fica              decimal.Decimal
 	taxableTotal      decimal.Decimal
+	agi               decimal.Decimal
 	standardDeduction decimal.Decimal
 	filingStatus      string
 	seniors           int
+	brackets          []domain.TaxBracketDetail
 }
 
 type taxComputationContext struct {
@@ -853,7 +886,7 @@ func (ce *CalculationEngine) calculateTransitionYearTaxes(ctx taxComputationCont
 		InterestIncome:     decimal.Zero,
 	}
 
-	federalTax := ce.TaxCalc.calculateFederalTaxWithStatus(taxableIncome, ctx.filingStatus, ctx.seniors, ctx.year)
+	federalTax, agi, brackets := ce.TaxCalc.calculateFederalTaxWithDetails(taxableIncome, ctx.filingStatus, ctx.seniors, ctx.year)
 	stateTax := ce.TaxCalc.StateTaxCalc.CalculateTax(taxableIncome, false)
 	localTax := ce.TaxCalc.LocalTaxCalc.CalculateEIT(totalWorkingIncome, false)
 	personAFICA := ce.TaxCalc.FICATaxCalc.CalculateFICA(ctx.workingIncomeA, totalWorkingIncome)
@@ -872,9 +905,11 @@ func (ce *CalculationEngine) calculateTransitionYearTaxes(ctx taxComputationCont
 		local:             localTax,
 		fica:              ficaTax,
 		taxableTotal:      taxableTotal,
+		agi:               agi,
 		standardDeduction: standardDeduction,
 		filingStatus:      ctx.filingStatus,
 		seniors:           ctx.seniors,
+		brackets:          brackets,
 	}
 }
 
@@ -901,7 +936,7 @@ func (ce *CalculationEngine) calculateRetirementYearTaxes(ctx taxComputationCont
 		InterestIncome:     decimal.Zero,
 	}
 
-	federalTax := ce.TaxCalc.calculateFederalTaxWithStatus(taxableIncome, ctx.filingStatus, ctx.seniors, ctx.year)
+	federalTax, agi, brackets := ce.TaxCalc.calculateFederalTaxWithDetails(taxableIncome, ctx.filingStatus, ctx.seniors, ctx.year)
 	stateTax := ce.TaxCalc.StateTaxCalc.CalculateTax(taxableIncome, true)
 	localTax := ce.TaxCalc.LocalTaxCalc.CalculateEIT(decimal.Zero, true)
 	standardDeduction := ce.standardDeductionFor(ctx.filingStatus, ctx.seniors, ctx.year)
@@ -917,16 +952,18 @@ func (ce *CalculationEngine) calculateRetirementYearTaxes(ctx taxComputationCont
 		local:             localTax,
 		fica:              decimal.Zero,
 		taxableTotal:      taxableTotal,
+		agi:               agi,
 		standardDeduction: standardDeduction,
 		filingStatus:      ctx.filingStatus,
 		seniors:           ctx.seniors,
+		brackets:          brackets,
 	}
 }
 
 func (ce *CalculationEngine) calculateWorkingYearTaxes(ctx taxComputationContext) taxResult {
 	currentTaxableIncome := CalculateCurrentTaxableIncome(ctx.currentSalaryA, ctx.currentSalaryB)
 
-	federalTax := ce.TaxCalc.calculateFederalTaxWithStatus(currentTaxableIncome, ctx.filingStatus, ctx.seniors, ctx.year)
+	federalTax, agi, brackets := ce.TaxCalc.calculateFederalTaxWithDetails(currentTaxableIncome, ctx.filingStatus, ctx.seniors, ctx.year)
 	stateTax := ce.TaxCalc.StateTaxCalc.CalculateTax(currentTaxableIncome, false)
 	localTax := ce.TaxCalc.LocalTaxCalc.CalculateEIT(ctx.combinedCurrentSalary(), false)
 
@@ -943,9 +980,11 @@ func (ce *CalculationEngine) calculateWorkingYearTaxes(ctx taxComputationContext
 		local:             localTax,
 		fica:              ficaTax,
 		taxableTotal:      currentTaxableIncome.Salary,
+		agi:               agi,
 		standardDeduction: standardDeduction,
 		filingStatus:      ctx.filingStatus,
 		seniors:           ctx.seniors,
+		brackets:          brackets,
 	}
 }
 

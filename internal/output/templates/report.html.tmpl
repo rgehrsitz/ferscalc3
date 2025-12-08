@@ -247,7 +247,8 @@ const scenarioData = [
     medicarePremiumsPersonA: [{{range $scenario.Projection}}{{printf "%.0f" .MedicarePremiumPersonA.InexactFloat64}},{{end}}],
     medicarePremiumsPersonB: [{{range $scenario.Projection}}{{printf "%.0f" .MedicarePremiumPersonB.InexactFloat64}},{{end}}],
     federalTaxes: [{{range $scenario.Projection}}{{printf "%.0f" .FederalTax.InexactFloat64}},{{end}}],
-    effectiveTaxRates: [{{range $scenario.Projection}}{{if gt .TotalGrossIncome.InexactFloat64 0.0}}{{printf "%.4f" (.FederalTax.Div .TotalGrossIncome).InexactFloat64}}{{else}}0{{end}},{{end}}]
+    effectiveTaxRates: [{{range $scenario.Projection}}{{if gt .TotalGrossIncome.InexactFloat64 0.0}}{{printf "%.4f" (.FederalTax.Div .TotalGrossIncome).InexactFloat64}}{{else}}0{{end}},{{end}}],
+    taxBrackets: [{{range $scenario.Projection}}{{json .FederalTaxBrackets}},{{end}}]
   }{{if ne $scenarioIndex (len $.Scenarios | minus1)}},{{end}}
 {{- end}}
 ];
@@ -321,7 +322,7 @@ new Chart(tspCtx, {
   }
 });
 
-// Federal Tax vs Effective Rate Chart
+// Federal Tax vs Effective Rate Chart with Stacked Brackets
 const taxCanvas = document.getElementById('federalTaxChart');
 if (taxCanvas && scenarioData.length) {
   const allYears = scenarioData.flatMap(s => s.years.map(year => parseInt(year)));
@@ -330,20 +331,47 @@ if (taxCanvas && scenarioData.length) {
   const taxCtx = taxCanvas.getContext('2d');
   const taxDatasets = [];
 
+  // Tax bracket colors (ordered from low to high rates)
+  const bracketColors = {
+    '10': '#d4edda',  // Light green - 10%
+    '12': '#a8d5ba',  // Medium-light green - 12%
+    '22': '#ffc107',  // Yellow/amber - 22%
+    '24': '#ff9800',  // Orange - 24%
+    '32': '#ff5722',  // Deep orange - 32%
+    '35': '#f44336',  // Red - 35%
+    '37': '#c62828'   // Dark red - 37%
+  };
+
   scenarioData.forEach((scenario, index) => {
-    const color = colors[index % colors.length];
-    taxDatasets.push({
-      type: 'bar',
-      label: `${scenario.name} - Federal Tax`,
-      data: scenario.years.map((year, i) => ({
-        x: parseInt(year),
-        y: parseFloat(scenario.federalTaxes[i] || 0)
-      })),
-      backgroundColor: color + '66',
-      borderColor: color,
-      borderWidth: 1,
-      yAxisID: 'yTaxes'
+    // Get all unique bracket rates across all years for this scenario
+    const allBrackets = scenario.taxBrackets.flatMap(yearBrackets =>
+      yearBrackets.map(b => Math.round(parseFloat(b.rate) * 100))
+    );
+    const uniqueRates = [...new Set(allBrackets)].sort((a, b) => a - b);
+
+    // Create a stacked bar dataset for each tax bracket
+    uniqueRates.forEach(rate => {
+      const rateStr = rate.toString();
+      taxDatasets.push({
+        type: 'bar',
+        label: `${scenario.name} - ${rate}% Bracket`,
+        data: scenario.years.map((year, yearIdx) => {
+          const brackets = scenario.taxBrackets[yearIdx] || [];
+          const bracket = brackets.find(b => Math.round(parseFloat(b.rate) * 100) === rate);
+          return {
+            x: parseInt(year),
+            y: bracket ? parseFloat(bracket.tax_from_bracket) : 0
+          };
+        }),
+        backgroundColor: bracketColors[rateStr] || '#888',
+        borderColor: bracketColors[rateStr] || '#666',
+        borderWidth: 0.5,
+        stack: `stack-${index}`,
+        yAxisID: 'yTaxes'
+      });
     });
+
+    // Add effective rate line on top
     taxDatasets.push({
       type: 'line',
       label: `${scenario.name} - Effective Rate`,
@@ -351,12 +379,14 @@ if (taxCanvas && scenarioData.length) {
         x: parseInt(year),
         y: parseFloat(scenario.effectiveTaxRates[i] || 0) * 100
       })),
-      borderColor: color,
-      backgroundColor: color,
+      borderColor: colors[index % colors.length],
+      backgroundColor: colors[index % colors.length],
       borderWidth: 2,
       fill: false,
       tension: 0.1,
-      yAxisID: 'yRate'
+      yAxisID: 'yRate',
+      pointRadius: 3,
+      pointHoverRadius: 5
     });
   });
 
@@ -367,15 +397,48 @@ if (taxCanvas && scenarioData.length) {
       parsing: false,
       responsive: true,
       maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
       plugins: {
-        title: { display: true, text: 'Federal Taxes and Effective Rates' },
+        title: {
+          display: true,
+          text: 'Federal Taxes by Bracket and Effective Rates',
+          font: { size: 16 }
+        },
         tooltip: {
           callbacks: {
             label: (context) => {
               if (context.dataset.yAxisID === 'yTaxes') {
                 return `${context.dataset.label}: $${Math.round(context.raw.y).toLocaleString()}`;
               }
-              return `${context.dataset.label}: ${context.raw.y.toFixed(1)}%`;
+              return `${context.dataset.label}: ${context.raw.y.toFixed(2)}%`;
+            },
+            footer: (tooltipItems) => {
+              // Show total tax and room in bracket
+              const yearIdx = tooltipItems[0].dataIndex;
+              const scenario = scenarioData[0]; // Assuming first scenario for simplicity
+              const brackets = scenario.taxBrackets[yearIdx] || [];
+              if (brackets.length > 0) {
+                const topBracket = brackets[brackets.length - 1];
+                const room = parseFloat(topBracket.room_in_bracket);
+                const topRate = Math.round(parseFloat(topBracket.rate) * 100);
+                return `\nRoom in ${topRate}% bracket: $${Math.round(room).toLocaleString()}`;
+              }
+              return '';
+            }
+          }
+        },
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            boxWidth: 12,
+            font: { size: 10 },
+            filter: (legendItem) => {
+              // Show bracket legend items and effective rate lines
+              return legendItem.text.includes('Bracket') || legendItem.text.includes('Effective Rate');
             }
           }
         }
@@ -395,6 +458,7 @@ if (taxCanvas && scenarioData.length) {
         yTaxes: {
           type: 'linear',
           position: 'left',
+          stacked: true,
           title: { display: true, text: 'Federal Tax ($)' },
           ticks: { callback: value => '$' + Math.round(value).toLocaleString() }
         },
@@ -403,7 +467,7 @@ if (taxCanvas && scenarioData.length) {
           position: 'right',
           title: { display: true, text: 'Effective Tax Rate (%)' },
           min: 0,
-          max: 60,
+          max: 30,
           ticks: { callback: value => value + '%' },
           grid: { drawOnChartArea: false }
         }
