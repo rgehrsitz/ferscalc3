@@ -203,7 +203,8 @@ func CalculatePensionForYear(employee *domain.Employee, retirementDate time.Time
 // ValidateFERSEligibility checks if an employee is eligible for FERS retirement
 func ValidateFERSEligibility(employee *domain.Employee, retirementDate time.Time) (bool, string) {
 	age := employee.Age(retirementDate)
-	serviceYears := employee.YearsOfService(retirementDate)
+	// Use CreditableService (excludes sick leave) for eligibility determination
+	serviceYears := employee.CreditableService(retirementDate)
 	mra := dateutil.MinimumRetirementAge(employee.BirthDate)
 	hasReachedMRA := dateutil.HasReachedRetirementAge(employee.BirthDate, retirementDate, mra)
 

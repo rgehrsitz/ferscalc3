@@ -365,6 +365,9 @@ type FERSRules struct {
 	// TSP matching rates
 	TSPMatchingRate      decimal.Decimal `yaml:"tsp_matching_rate" json:"tsp_matching_rate"`           // Default: 0.05 (5% maximum match)
 	TSPMatchingThreshold decimal.Decimal `yaml:"tsp_matching_threshold" json:"tsp_matching_threshold"` // Default: 0.05 (5% contribution required for full match)
+
+	// Special Retirement Supplement (SRS) earnings test limit
+	SRSEarningsLimit decimal.Decimal `yaml:"srs_earnings_limit" json:"srs_earnings_limit"` // Default: 23400 (2025 projected)
 }
 
 // FederalTaxConfig contains federal income tax configuration (updated annually)

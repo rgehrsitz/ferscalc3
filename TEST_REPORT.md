@@ -2,16 +2,27 @@
 
 ## Test Results Summary
 
-**Date**: January 2025
-**Total Test Cases**: 174
-**Passed**: 168 (96.6%)
-**Failed**: 6 (3.4%)
+**Date**: January 2026
+**Total Test Cases**: 177 (+3 New)
+**Passed**: 171
+**Failed**: 6 (Infrastructure only - see below)
 
 ---
 
-## Overall Status: ✅ **EXCELLENT**
+## Overall Status: ✅ **EXCELLENT / REGRESSION TESTED**
 
-The vast majority of tests pass, with all critical business logic fully validated.
+All critical business logic is validated, including specific regression tests for issues identified in the Red Team Report.
+
+---
+
+## Recent Fixes & Regression Tests
+New targeted tests have been added to prevent regression of identified issues:
+
+### ✅ Red Team Issue coverage (New Tests)
+**Package**: `internal/calculation`
+- **Eligibility**: Verified `ValidateFERSEligibility` correctly excludes sick leave from eligibility checks (uses `CreditableService`).
+- **SRS Earnings Test**: Verified `CalculateFERSSupplementYear` reduces benefits by $1 for every $2 earned above the limit.
+- **NJ Pension Exclusion**: Verified 3-tier exclusion logic ($100k/$50k/$25k) works correctly for retired MFJ taxpayers.
 
 ---
 

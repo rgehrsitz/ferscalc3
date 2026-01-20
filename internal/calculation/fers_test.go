@@ -151,7 +151,7 @@ func TestCalculateFERSSupplementYearNonFederal(t *testing.T) {
 		HireDate:       time.Date(1990, 3, 20, 0, 0, 0, 0, time.UTC),
 		SSBenefit62:    decimal.NewFromInt(2000),
 	}
-	amount := CalculateFERSSupplementYear(employee, time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC), 0, decimal.NewFromFloat(0.02))
+	amount := CalculateFERSSupplementYear(employee, time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC), 0, decimal.NewFromFloat(0.02), decimal.Zero, decimal.NewFromInt(23400))
 	assert.True(t, amount.IsZero(), "non-federal employees should not receive FERS supplement")
 }
 

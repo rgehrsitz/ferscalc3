@@ -168,54 +168,71 @@ func (ptc *PennsylvaniaTaxCalculator) CalculateTax(income domain.TaxableIncome, 
 
 // NewJerseyTaxCalculator handles New Jersey state tax calculations
 type NewJerseyTaxCalculator struct {
-	pensionExclusionIncomeLimit decimal.Decimal
-	maxPensionExclusion         decimal.Decimal
+	// 2024/2025 Tiered Exclusion Rules (MFJ assumed for Phase 1)
 }
 
 // NewNewJerseyTaxCalculator creates a new NJ tax calculator
 func NewNewJerseyTaxCalculator() *NewJerseyTaxCalculator {
-	return &NewJerseyTaxCalculator{
-		pensionExclusionIncomeLimit: decimal.NewFromInt(150000),
-		maxPensionExclusion:         decimal.NewFromInt(100000),
-	}
+	return &NewJerseyTaxCalculator{}
 }
 
 // CalculateTax calculates New Jersey state income tax
+// Based on 2024/2025 Rules for Married Filing Jointly (age 62+)
 func (njtc *NewJerseyTaxCalculator) CalculateTax(income domain.TaxableIncome, isRetired bool) decimal.Decimal {
-	// Simplified NJ Tax Logic for Phase 1
-	// 1. Social Security is exempt.
-	// 2. Pension/Retirement income exclusion (simplified):
-	//    If total income is reasonable, we assume some exclusion.
-	//    For now, let's apply a simplified progressive rate on taxable income.
+	// NJ Gross Income Calculation:
+	// Includes: Wages, Pension, Annuities, TSP/IRA withdrawals, Interest, Dividends, etc.
+	// Excludes: Social Security Benefits
+	njGrossIncome := income.WageIncome.
+		Add(income.FERSPension).
+		Add(income.TSPWithdrawalsTrad).
+		Add(income.InterestIncome).
+		Add(income.OtherTaxableIncome)
 
-	// Taxable base: Salary + Pension + TSP + Other (SS is exempt)
-	taxableIncome := income.Salary.Add(income.FERSPension).Add(income.TSPWithdrawalsTrad).Add(income.OtherTaxableIncome)
+	taxableIncome := njGrossIncome
 
-	// Apply pension exclusion when the household meets NJ criteria (62+ retirees with income <= 150k).
-	// We approximate eligibility using the provided isRetired flag.
+	// Pension/Retirement Exclusion (only applies if isRetired/eligible age)
+	// We assume "isRetired" flag loosely correlates with eligibility (62+).
+	// Ideally we'd check age, but the interface limits us.
 	if isRetired {
+		var exclusion decimal.Decimal
+
+		// 3-Tiered "Soft Cliff" Exclusion for MFJ (Tax Year 2024+)
+		limitTier1 := decimal.NewFromInt(100000)
+		limitTier2 := decimal.NewFromInt(125000)
+		limitTier3 := decimal.NewFromInt(150000)
+
+		if njGrossIncome.LessThanOrEqual(limitTier1) {
+			exclusion = decimal.NewFromInt(100000)
+		} else if njGrossIncome.LessThanOrEqual(limitTier2) {
+			exclusion = decimal.NewFromInt(50000)
+		} else if njGrossIncome.LessThanOrEqual(limitTier3) {
+			exclusion = decimal.NewFromInt(25000)
+		} else {
+			exclusion = decimal.Zero // Hard cliff at $150,000
+		}
+
+		// Apply exclusion to Retirement Income only (Pension + TSP)
+		// You cannot exclude wages/interest using the pension exclusion.
 		retirementIncome := income.FERSPension.Add(income.TSPWithdrawalsTrad)
-		totalIncome := taxableIncome
-		if totalIncome.LessThanOrEqual(njtc.pensionExclusionIncomeLimit) && retirementIncome.GreaterThan(decimal.Zero) {
-			exclusion := decimal.Min(retirementIncome, njtc.maxPensionExclusion)
-			taxableIncome = taxableIncome.Sub(exclusion)
-			if taxableIncome.IsNegative() {
-				taxableIncome = decimal.Zero
-			}
+		applicableExclusion := decimal.Min(exclusion, retirementIncome)
+
+		taxableIncome = taxableIncome.Sub(applicableExclusion)
+		if taxableIncome.IsNegative() {
+			taxableIncome = decimal.Zero
 		}
 	}
 
-	// Simple progressive brackets (approximate for 2024/2025)
-	// 0 - 20k: 1.4%
-	// 20k - 35k: 1.75%
-	// 35k - 40k: 3.5%
-	// 40k - 75k: 5.525%
-	// 75k - 500k: 6.37%
-	// 500k+: 8.97% (ignoring top bracket for now)
+	// NJ Tax Brackets (MFJ 2024/2025)
+	// 1.4% on first 20k
+	// 1.75% on 20k-50k
+	// 2.45% on 50k-70k
+	// 3.5% on 70k-80k
+	// 5.525% on 80k-150k
+	// 6.37% on 150k-500k
+	// 8.97% on 500k-1M
+	// 10.75% on >1M
 
-	// We'll implement a simple bracket calculation here
-	// Note: This is a simplification. Real NJ tax has filing status differences.
-
+	// Simplified bracket implementation
 	var tax decimal.Decimal
 	remaining := taxableIncome
 
@@ -224,11 +241,13 @@ func (njtc *NewJerseyTaxCalculator) CalculateTax(income domain.TaxableIncome, is
 		rate  decimal.Decimal
 	}{
 		{decimal.NewFromInt(20000), decimal.NewFromFloat(0.014)},
-		{decimal.NewFromInt(35000), decimal.NewFromFloat(0.0175)},
-		{decimal.NewFromInt(40000), decimal.NewFromFloat(0.035)},
-		{decimal.NewFromInt(75000), decimal.NewFromFloat(0.05525)},
+		{decimal.NewFromInt(50000), decimal.NewFromFloat(0.0175)},
+		{decimal.NewFromInt(70000), decimal.NewFromFloat(0.0245)},
+		{decimal.NewFromInt(80000), decimal.NewFromFloat(0.035)},
+		{decimal.NewFromInt(150000), decimal.NewFromFloat(0.05525)},
 		{decimal.NewFromInt(500000), decimal.NewFromFloat(0.0637)},
-		{decimal.NewFromInt(999999999), decimal.NewFromFloat(0.0897)},
+		{decimal.NewFromInt(1000000), decimal.NewFromFloat(0.0897)},
+		{decimal.NewFromInt(999999999), decimal.NewFromFloat(0.1075)},
 	}
 
 	prevLimit := decimal.Zero

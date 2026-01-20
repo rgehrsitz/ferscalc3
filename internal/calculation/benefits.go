@@ -9,7 +9,8 @@ import (
 )
 
 // CalculateFERSSupplementYear calculates the FERS Special Retirement Supplement for a given year offset
-func CalculateFERSSupplementYear(employee *domain.Employee, retirementDate time.Time, yearsSinceRetirement int, inflationRate decimal.Decimal) decimal.Decimal {
+// Includes earnings test reduction if applicable
+func CalculateFERSSupplementYear(employee *domain.Employee, retirementDate time.Time, yearsSinceRetirement int, inflationRate decimal.Decimal, earnedIncome decimal.Decimal, earningsLimit decimal.Decimal) decimal.Decimal {
 	if employee == nil || employee.EmploymentCategory() != domain.EmploymentTypeFederal {
 		return decimal.Zero
 	}
@@ -35,6 +36,7 @@ func CalculateFERSSupplementYear(employee *domain.Employee, retirementDate time.
 		srs = srs.Mul(decimal.NewFromFloat(1).Add(inflationRate))
 	}
 
+	// Apply partial year proration for the year turning 62
 	birthdayThisYear := time.Date(projectionDate.Year(), employee.BirthDate.Month(), employee.BirthDate.Day(), 0, 0, 0, 0, time.UTC)
 	if employee.Age(birthdayThisYear) >= 62 {
 		daysBeforeBirthday := birthdayThisYear.Sub(yearStart).Hours() / 24.0
@@ -51,6 +53,17 @@ func CalculateFERSSupplementYear(employee *domain.Employee, retirementDate time.
 				fraction = 1
 			}
 			srs = srs.Mul(decimal.NewFromFloat(fraction))
+		}
+	}
+
+	// Apply Earnings Test Reduction
+	// Reduction is $1 for every $2 earned above the limit
+	if earnedIncome.GreaterThan(earningsLimit) && earningsLimit.GreaterThan(decimal.Zero) {
+		excessEarnings := earnedIncome.Sub(earningsLimit)
+		reduction := excessEarnings.Div(decimal.NewFromInt(2))
+		srs = srs.Sub(reduction)
+		if srs.IsNegative() {
+			srs = decimal.Zero
 		}
 	}
 

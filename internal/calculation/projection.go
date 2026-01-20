@@ -102,7 +102,11 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 				if ce.Debug && state.label == "PersonA" && year == state.retirementYear {
 					ce.logPensionDebug(state, year, result.pension)
 				}
-				result.supplement = calculateSupplementForYear(state, year, assumptions.InflationRate, result.workFraction)
+				// SRS Earnings Test Limit (Projected 2025: $23,400)
+				srsLimit := federalRules.FERSRules.SRSEarningsLimit
+				// Future enhancement: Pass actual post-retirement earned income here.
+				// Currently assuming zero post-retirement wages, so reduction is zero.
+				result.supplement = calculateSupplementForYear(state, year, assumptions.InflationRate, result.workFraction, decimal.Zero, srsLimit)
 			}
 
 			fixedIncome := calculateFixedRetirementIncome(state, year, assumptions.COLAGeneralRate, result.workFraction)
@@ -400,11 +404,11 @@ func (ce *CalculationEngine) logPensionDebug(state *personProjectionState, year 
 	ce.Logger.Debugf("  Current-year cash received (partial): $%s", pension.StringFixed(2))
 }
 
-func calculateSupplementForYear(state *personProjectionState, year int, inflation decimal.Decimal, workFraction decimal.Decimal) decimal.Decimal {
+func calculateSupplementForYear(state *personProjectionState, year int, inflation decimal.Decimal, workFraction decimal.Decimal, earnedIncome decimal.Decimal, srsLimit decimal.Decimal) decimal.Decimal {
 	if state.employee.EmploymentCategory() != domain.EmploymentTypeFederal {
 		return decimal.Zero
 	}
-	supplement := CalculateFERSSupplementYear(state.employee, state.scenario.RetirementDate, year-state.retirementYear, inflation)
+	supplement := CalculateFERSSupplementYear(state.employee, state.scenario.RetirementDate, year-state.retirementYear, inflation, earnedIncome, srsLimit)
 	if year == state.retirementYear && state.retirementYear >= 0 {
 		supplement = supplement.Mul(decimal.NewFromInt(1).Sub(workFraction))
 	}
