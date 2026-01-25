@@ -22,8 +22,7 @@ coverage.*
 node_modules/
 
 # Generated reports and exports
-/reports/
-/reports/**
+reports/
 *.report.html
 *.report.json
 *.report.csv
@@ -42,21 +41,19 @@ test/integration/*.console
 internal/output/retirement_report_*.csv
 internal/output/retirement_report_*.json
 
+# General trial run outputs (often in root)
+*.html
+*.csv
+*.console
+*.log
+
 # OS binaries produced by go build
 *.exe
 *.dll
 *.so
 *.dylib
-retirement_report_20251207_164552.html
-retirement_report_20251207_164923.json
-.gitignore
-retirement_report_20251207_164939.json
-.gitignore
-retirement_report_20251207_170626.csv
-retirement_report_20251207_164957.json
-retirement_report_20251207_171839.html
-retirement_report_20251207_171901.html
+
+# Local settings and logs
 .claude/settings.local.json
-test_full.log
-test_full_2.log
+test_full*.log
 test_output.txt
