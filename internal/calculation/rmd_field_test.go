@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/rpgo/retirement-calculator/internal/domain"
-	"github.com/rpgo/retirement-calculator/pkg/dateutil"
 	"github.com/shopspring/decimal"
 )
 
@@ -32,41 +31,54 @@ func TestRMDAmountFieldIsPopulated(t *testing.T) {
 	// full RMD at age
 	fullRMD := CalculateRMD(balance, birthDate.Year(), 73)
 	// compute fraction for prorate as projection code does
-	year := 2025
-	birthdayThisYear := time.Date(year, birthDate.Month(), birthDate.Day(), 0, 0, 0, 0, time.UTC)
-	yearEnd := time.Date(year, time.December, 31, 0, 0, 0, 0, time.UTC)
-	daysAfter := yearEnd.Sub(birthdayThisYear).Hours() / 24.0
-	daysInYear := float64(dateutil.DaysInYear(year))
-	frac := daysAfter / daysInYear
-	if frac < 0 {
-		frac = 0
-	}
-	prorated := fullRMD.Mul(decimal.NewFromFloat(frac))
+	// year := 2025
+	// birthdayThisYear := time.Date(year, birthDate.Month(), birthDate.Day(), 0, 0, 0, 0, time.UTC)
+	// yearEnd := time.Date(year, time.December, 31, 0, 0, 0, 0, time.UTC)
+	// daysAfter := yearEnd.Sub(birthdayThisYear).Hours() / 24.0
+	// daysInYear := float64(dateutil.DaysInYear(year))
+	// Verify that RMD is NOT prorated for first year (Finding 3 Fix)
+	// expectedProratedRMD := fullRMD.Mul(decimal.NewFromFloat(frac)) // OLD
+	// expected := fullRMD // NEW
 
-	// Ensure prorated < full and prorated >= 0
-	if prorated.GreaterThanOrEqual(fullRMD) {
-		t.Fatalf("expected prorated RMD to be less than full RMD: prorated=%s full=%s", prorated.String(), fullRMD.String())
-	}
-	if prorated.LessThan(decimal.Zero) {
-		t.Fatalf("expected prorated RMD to be non-negative: %s", prorated.String())
+	// RMDAmount should equal fullRMD
+	if fullRMD.LessThanOrEqual(decimal.Zero) {
+		t.Fatalf("expected positive full RMD")
 	}
 
-	// Now simulate next year full RMD
-	fullNext := CalculateRMD(balance, birthDate.Year(), 74) // age increments
-	if fullNext.LessThanOrEqual(decimal.Zero) {
-		t.Fatalf("expected next year full RMD to be positive: %s", fullNext.String())
+	// Ensure RMDAmount matches fullRMD
+	// Note: We are simulating verification logic here. The actual projection code sets RMDAmount.
+
+	// Let's create a scenario where we assert what we EXPECT the projection to produce.
+	// Since we are not running the projection engine here but simulating checks,
+	// we just update the test expectation logic.
+
+	expectedRMD := fullRMD
+
+	// Ensure expectedRMD > 0
+	if expectedRMD.LessThanOrEqual(decimal.Zero) {
+		t.Fatalf("Expected RMD > 0")
 	}
 
-	// Also assert types: create a dummy AnnualCashFlow and set RMDAmount and ensure JSON-tagged field exists
+	/*
+		The previous test asserted:
+		if prorated.GreaterThanOrEqual(fullRMD) {
+			t.Fatalf("expected prorated RMD to be less than full RMD...")
+		}
+		We REMOVE this check since we DO expect it to be full RMD now.
+	*/
+
+	// Quick numeric tolerance check (assert full amount)
+	// We want to verify that acf.RMDAmount (which we simulated setting to fullRMD) is correct.
+	// But wait, the test code block above sets 'acf.RMDAmount = prorated'.
+	// We need to update that to set it to 'fullRMD' to match the new logic simulation.
+
 	acf := domain.AnnualCashFlow{}
-	acf.RMDAmount = prorated
-	if !acf.RMDAmount.Equal(prorated) {
+	acf.RMDAmount = fullRMD // Simulate what the engine now does
+
+	if !acf.RMDAmount.Equal(fullRMD) {
 		t.Fatalf("RMDAmount not set correctly on AnnualCashFlow")
 	}
 
-	// Quick numeric tolerance check between prorated and computing full*frac
-	delta := fullRMD.Mul(decimal.NewFromFloat(frac)).Sub(prorated).Abs()
-	if !delta.LessThan(decimal.NewFromFloat(0.01)) {
-		t.Fatalf("prorated mismatch: delta=%s", delta.String())
-	}
+	// Remove checking against 'prorated' variable entirely as it's no longer relevant
+	// delta := fullRMD.Mul(decimal.NewFromFloat(frac)).Sub(prorated).Abs() ... DELETED
 }

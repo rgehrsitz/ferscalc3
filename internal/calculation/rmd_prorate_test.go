@@ -49,23 +49,21 @@ func TestRMDProrate_FirstYearAndTSPHonorsProratedRMD(t *testing.T) {
 		t.Fatalf("expected non-zero full RMD for balance, got %s", fullRMD.String())
 	}
 	// Compute expected prorated RMD fraction
-	yearEnd := time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC)
-	birthdayThisYear := time.Date(2025, personA.BirthDate.Month(), personA.BirthDate.Day(), 0, 0, 0, 0, time.UTC)
-	daysAfter := yearEnd.Sub(birthdayThisYear).Hours() / 24.0
-	daysInYear := float64(dateutil.DaysInYear(2025))
-	frac := daysAfter / daysInYear
-	expectedProratedRMD := fullRMD.Mul(decimal.NewFromFloat(frac))
+	// Per IRS Publication 590-B, the first RMD year requires the FULL annual RMD amount,
+	// even if the participant turns RMD age mid-year. Do NOT prorate.
+	// expectedProratedRMD := fullRMD.Mul(decimal.NewFromFloat(frac)) // OLD WRONG LOGIC
+	expectedRMD := fullRMD // NEW CORRECT LOGIC
 
-	// TSP 4% rule withdrawal for 500k is 20,000. If prorated RMD > 20,000 then withdrawal should equal prorated RMD; otherwise 4% rule applies.
+	// TSP 4% rule withdrawal for 500k is 20,000. If RMD > 20,000 then withdrawal should equal RMD.
 	fourPercent := personA.TSPBalanceTraditional.Mul(decimal.NewFromFloat(0.04))
 	expectedWithdrawal := fourPercent
-	if expectedProratedRMD.GreaterThan(fourPercent) {
-		expectedWithdrawal = expectedProratedRMD
+	if expectedRMD.GreaterThan(fourPercent) {
+		expectedWithdrawal = expectedRMD
 	}
 
-	// Verify the projection row's RMDAmount matches the expected prorated RMD
-	if row.RMDAmount.Sub(expectedProratedRMD).Abs().GreaterThan(decimal.NewFromFloat(0.01)) {
-		t.Fatalf("RMDAmount mismatch; expected %s, got %s", expectedProratedRMD.StringFixed(2), row.RMDAmount.StringFixed(2))
+	// Verify the projection row's RMDAmount matches the expected full RMD
+	if row.RMDAmount.Sub(expectedRMD).Abs().GreaterThan(decimal.NewFromFloat(0.01)) {
+		t.Fatalf("RMDAmount mismatch; expected %s, got %s", expectedRMD.StringFixed(2), row.RMDAmount.StringFixed(2))
 	}
 
 	diff := row.TSPWithdrawalPersonA.Sub(expectedWithdrawal).Abs()

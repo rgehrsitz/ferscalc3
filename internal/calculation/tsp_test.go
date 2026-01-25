@@ -167,6 +167,14 @@ func TestRMDCalculationExamples(t *testing.T) {
 			expectedRMD: decimal.Zero,
 			description: "No RMD required before minimum age",
 		},
+		{
+			name:        "Age 73 (SECURE 2.0, full amount check): $500k balance",
+			birthYear:   1950, // Born before 1950, so RMD starts at 72. If age is 73, it's the second year.
+			age:         73,
+			balance:     decimal.NewFromInt(500000),
+			expectedRMD: decimal.NewFromFloat(18867.92), // 500000 / 26.5 (for age 73)
+			description: "RMD for age 73 should be full amount, not prorated",
+		},
 	}
 
 	for _, tt := range tests {

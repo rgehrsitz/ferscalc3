@@ -31,6 +31,19 @@ type FERSPensionCalculation struct {
 }
 
 // CalculateFERSPension calculates the annual FERS pension
+//
+// IMPORTANT: This function returns the FULL ANNUAL pension amount based on the retirement date,
+// regardless of when in the year retirement occurs. Partial-year adjustments (proration) for
+// mid-year retirements are the responsibility of the calling code (typically in the projection layer).
+//
+// The survivor annuity calculation uses the unreduced annual pension as its base, which is correct
+// per FERS rules. If the retiree dies mid-year during their first year of retirement, the projection
+// layer will apply appropriate proration to both the retiree's pension and survivor benefits.
+//
+// For edge cases involving mid-year retirement followed by death in the same year, verify that:
+//  1. The retiree receives prorated pension for the portion of the year after retirement
+//  2. The survivor receives prorated survivor annuity for the portion after the retiree's death
+//  3. Both calculations use the full annual amounts as their base
 func CalculateFERSPension(employee *domain.Employee, retirementDate time.Time) FERSPensionCalculation {
 	if employee == nil || employee.EmploymentCategory() != domain.EmploymentTypeFederal {
 		return FERSPensionCalculation{}
@@ -59,6 +72,7 @@ func CalculateFERSPension(employee *domain.Employee, retirementDate time.Time) F
 	// If elect 50% survivor annuity -> retiree pension reduced by 10%
 	// If elect 25% survivor annuity -> retiree pension reduced by 5%
 	// Assume input SurvivorBenefitElectionPercent holds desired survivor percent of base (0, 0.25, 0.50).
+	// NOTE: Survivor annuity is based on the unreduced annual pension (before survivor election reduction)
 	reducedPension := annualPension
 	survivorAnnuity := decimal.Zero
 	election := employee.SurvivorBenefitElectionPercent
@@ -106,11 +120,22 @@ func determineMultiplier(retirementAge int, serviceYears decimal.Decimal) decima
 }
 
 // ApplyFERSPensionCOLA applies the FERS COLA rules
-// COLA is not applied until the annuitant reaches age 62
-// Annual COLA Rules:
+//
+// Per OPM regulations (5 CFR § 842.403-842.404):
+//   - COLA is NOT applied until the annuitant reaches age 62
+//   - The first COLA is payable in December of the year following the year the retiree turns 62,
+//     OR December following the first year of retirement, whichever is later
+//
+// This implementation applies COLA starting in the calendar year AFTER turning 62.
+// For retirees who turn 62 mid-year, they receive NO COLA for that partial year, then
+// full COLA adjustments beginning the following year. This aligns with OPM guidance.
+//
+// Annual COLA Rules (when eligible):
 // - If CPI change (inflation) is 2% or less, COLA is the actual CPI change
 // - If CPI change is between 2% and 3%, COLA is 2%
 // - If CPI change is greater than 3%, COLA is CPI change minus 1%
+//
+// Reference: OPM CSRS and FERS Handbook, Chapter 81
 func ApplyFERSPensionCOLA(currentPension decimal.Decimal, inflationRate decimal.Decimal, annuitantAge int) decimal.Decimal {
 	if annuitantAge < 62 {
 		return currentPension // No COLA until age 62

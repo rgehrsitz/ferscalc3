@@ -457,13 +457,15 @@ func calculateSocialSecurityForYear(state *personProjectionState, year int, proj
 				if monthsOfBenefits > 12 {
 					monthsOfBenefits = 12
 				}
-				birthdayThisYear := time.Date(projectionDate.Year(), state.employee.BirthDate.Month(), state.employee.BirthDate.Day(), 0, 0, 0, 0, time.UTC)
-				if retirementDate.Before(birthdayThisYear) {
+
+				// Apply monthly proration for partial year, regardless of birthday timing
+				if monthsOfBenefits > 0 && monthsOfBenefits < 12 {
 					monthly := ss.Div(decimal.NewFromInt(12))
 					ss = monthly.Mul(decimal.NewFromInt(int64(monthsOfBenefits)))
 				} else if monthsOfBenefits <= 0 {
 					ss = decimal.Zero
 				}
+				// If monthsOfBenefits == 12, keep full annual amount (ss unchanged)
 			default:
 				birthdayThisYear := time.Date(projectionDate.Year(), state.employee.BirthDate.Month(), state.employee.BirthDate.Day(), 0, 0, 0, 0, time.UTC)
 				if state.scenario.RetirementDate.Before(birthdayThisYear) {
@@ -480,26 +482,21 @@ func calculateSocialSecurityForYear(state *personProjectionState, year int, proj
 
 func calculateRMDForYear(state *personProjectionState, projectionDate, yearEnd time.Time, result *personAnnualResult) decimal.Decimal {
 	rmdAge := dateutil.GetRMDAge(state.employee.BirthDate.Year())
+
+	// For the FIRST RMD year (year person turns RMD age), the full RMD is required
+	// Per IRS Publication 590-B: The RMD for the first year can be delayed until April 1
+	// of the following year, but the AMOUNT is still based on the full year's balance.
+	// Do NOT prorate the first RMD for partial year - this is incorrect per IRS rules
 	if result.ageStart < rmdAge && result.ageEnd >= rmdAge {
-		birthdayThisYear := time.Date(projectionDate.Year(), state.employee.BirthDate.Month(), state.employee.BirthDate.Day(), 0, 0, 0, 0, time.UTC)
-		daysAfter := yearEnd.Sub(birthdayThisYear).Hours() / 24.0
-		daysInYear := float64(dateutil.DaysInYear(projectionDate.Year()))
-		if daysInYear == 0 {
-			return decimal.Zero
-		}
-		frac := daysAfter / daysInYear
-		if frac < 0 {
-			frac = 0
-		}
-		if frac > 1 {
-			frac = 1
-		}
-		fullRMD := CalculateRMD(state.traditional, state.employee.BirthDate.Year(), rmdAge)
-		return fullRMD.Mul(decimal.NewFromFloat(frac))
+		// First year reaching RMD age - return FULL RMD (no proration)
+		return CalculateRMD(state.traditional, state.employee.BirthDate.Year(), rmdAge)
 	}
+
+	// For subsequent RMD years, calculate normally
 	if result.ageStart >= rmdAge {
 		return CalculateRMD(state.traditional, state.employee.BirthDate.Year(), result.ageStart)
 	}
+
 	return decimal.Zero
 }
 
@@ -612,18 +609,46 @@ func (ce *CalculationEngine) calculateTSPWithdrawalForPerson(state *personProjec
 func (ce *CalculationEngine) updateTSPBalancesForPerson(state *personProjectionState, projectionDate time.Time, assumptions *domain.GlobalAssumptions, result *personAnnualResult) {
 	if result.isRetired {
 		if state.employee.TSPLifecycleFund != nil || state.employee.TSPAllocation != nil {
-			if result.tspWithdrawal.GreaterThan(state.traditional) {
-				remaining := result.tspWithdrawal.Sub(state.traditional)
-				state.traditional = decimal.Zero
-				if remaining.GreaterThan(state.roth) {
-					state.roth = decimal.Zero
-				} else {
-					state.roth = state.roth.Sub(remaining)
-				}
-			} else {
-				state.traditional = state.traditional.Sub(result.tspWithdrawal)
+			// OPTIMIZED WITHDRAWAL STRATEGY:
+			// 1. Take Required Minimum Distribution (RMD) from Traditional TSP first (IRS requirement)
+			// 2. Take any additional withdrawals from Roth TSP first (tax-free) for tax efficiency
+			// 3. Only take from Traditional TSP beyond RMD if Roth is depleted
+
+			totalWithdrawal := result.tspWithdrawal
+			rmdAmount := result.rmd
+
+			var traditionalWithdrawal, rothWithdrawal decimal.Decimal
+
+			// Step 1: RMD must come from Traditional (IRS requirement)
+			if rmdAmount.GreaterThan(decimal.Zero) {
+				traditionalWithdrawal = decimal.Min(rmdAmount, state.traditional)
+				totalWithdrawal = totalWithdrawal.Sub(traditionalWithdrawal)
 			}
 
+			// Step 2: Additional withdrawals come from Roth first (tax optimization)
+			if totalWithdrawal.GreaterThan(decimal.Zero) {
+				if totalWithdrawal.LessThanOrEqual(state.roth) {
+					rothWithdrawal = totalWithdrawal
+				} else {
+					// Roth depleted - take remaining from Traditional
+					rothWithdrawal = state.roth
+					traditionalWithdrawal = traditionalWithdrawal.Add(totalWithdrawal.Sub(state.roth))
+				}
+			}
+
+			// Apply withdrawals
+			state.traditional = state.traditional.Sub(traditionalWithdrawal)
+			state.roth = state.roth.Sub(rothWithdrawal)
+
+			// Ensure no negative balances
+			if state.traditional.IsNegative() {
+				state.traditional = decimal.Zero
+			}
+			if state.roth.IsNegative() {
+				state.roth = decimal.Zero
+			}
+
+			// Apply growth after withdrawals
 			allocation := ce.getTSPAllocationForEmployee(state.employee, projectionDate)
 			weightedReturn := ce.calculateTSPReturnWithAllocation(allocation, projectionDate.Year())
 			growthFactor := decimal.NewFromInt(1).Add(weightedReturn)
