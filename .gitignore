@@ -57,3 +57,5 @@ internal/output/retirement_report_*.json
 .claude/settings.local.json
 test_full*.log
 test_output.txt
+
+fers-calc
