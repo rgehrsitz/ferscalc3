@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -44,6 +45,35 @@ func (ip *InputParser) LoadFromFile(filename string) (*domain.Configuration, err
 	return &config, nil
 }
 
+// LoadFromJSON loads configuration from JSON bytes.
+func (ip *InputParser) LoadFromJSON(data []byte) (*domain.Configuration, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("no JSON input provided")
+	}
+
+	var config domain.Configuration
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	ip.applyDefaults(&config)
+
+	if err := ip.ValidateConfiguration(&config); err != nil {
+		return nil, fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	return &config, nil
+}
+
+// LoadFromJSONFile loads configuration from a JSON file.
+func (ip *InputParser) LoadFromJSONFile(filename string) (*domain.Configuration, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", filename, err)
+	}
+	return ip.LoadFromJSON(data)
+}
+
 // ValidateConfiguration validates the loaded configuration
 func (ip *InputParser) ValidateConfiguration(config *domain.Configuration) error {
 	// Validate personal details
@@ -55,9 +85,7 @@ func (ip *InputParser) ValidateConfiguration(config *domain.Configuration) error
 	if _, exists := config.PersonalDetails["person_a"]; !exists {
 		return fmt.Errorf("person_a employee details are required")
 	}
-	if _, exists := config.PersonalDetails["person_b"]; !exists {
-		return fmt.Errorf("person_b employee details are required")
-	}
+	_, hasPersonB := config.PersonalDetails["person_b"]
 
 	// Validate each employee
 	for name, employee := range config.PersonalDetails {
@@ -77,7 +105,7 @@ func (ip *InputParser) ValidateConfiguration(config *domain.Configuration) error
 	}
 
 	for i, scenario := range config.Scenarios {
-		if err := ip.validateScenario(i, &scenario); err != nil {
+		if err := ip.validateScenario(i, &scenario, hasPersonB); err != nil {
 			return fmt.Errorf("scenario %d validation failed: %w", i, err)
 		}
 	}
@@ -138,6 +166,14 @@ func (ip *InputParser) validateEmployee(_ string, employee *domain.Employee) err
 		return fmt.Errorf("SS benefit at FRA cannot be greater than at 70")
 	}
 
+	// Validate TSP allocation if provided
+	if employee.TSPAllocation != nil {
+		total := employee.TSPAllocation.CFund.Add(employee.TSPAllocation.SFund).Add(employee.TSPAllocation.IFund).Add(employee.TSPAllocation.FFund).Add(employee.TSPAllocation.GFund)
+		if total.LessThan(decimal.NewFromFloat(0.99)) || total.GreaterThan(decimal.NewFromFloat(1.01)) {
+			return fmt.Errorf("TSP allocation percentages must sum to 100%% (actual: %.2f%%)", total.Mul(decimal.NewFromInt(100)).InexactFloat64())
+		}
+	}
+
 	return nil
 }
 
@@ -171,7 +207,7 @@ func (ip *InputParser) validateGlobalAssumptions(assumptions *domain.GlobalAssum
 }
 
 // validateScenario validates a single scenario
-func (ip *InputParser) validateScenario(_ int, scenario *domain.Scenario) error {
+func (ip *InputParser) validateScenario(_ int, scenario *domain.Scenario, hasPersonB bool) error {
 	if scenario.Name == "" {
 		return fmt.Errorf("scenario name is required")
 	}
@@ -182,12 +218,19 @@ func (ip *InputParser) validateScenario(_ int, scenario *domain.Scenario) error 
 	}
 
 	// Validate PersonB scenario
-	if err := ip.validateRetirementScenario("person_b", &scenario.PersonB); err != nil {
-		return fmt.Errorf("person_b scenario validation failed: %w", err)
+	if hasPersonB {
+		if err := ip.validateRetirementScenario("person_b", &scenario.PersonB); err != nil {
+			return fmt.Errorf("person_b scenario validation failed: %w", err)
+		}
+	} else if !isScenarioEmpty(&scenario.PersonB) {
+		return fmt.Errorf("person_b scenario provided but person_b details are missing")
 	}
 
 	// Validate optional mortality block
 	if scenario.Mortality != nil {
+		if !hasPersonB && scenario.Mortality.PersonB != nil {
+			return fmt.Errorf("mortality.person_b specified but person_b details are missing")
+		}
 		if scenario.Mortality.PersonA != nil {
 			if scenario.Mortality.PersonA.DeathDate != nil && scenario.Mortality.PersonA.DeathAge != nil {
 				return fmt.Errorf("mortality.person_a: specify either death_date or death_age, not both")
@@ -212,6 +255,26 @@ func (ip *InputParser) validateScenario(_ int, scenario *domain.Scenario) error 
 	}
 
 	return nil
+}
+
+func isScenarioEmpty(scenario *domain.RetirementScenario) bool {
+	if scenario == nil {
+		return true
+	}
+	return scenario.EmployeeName == "" &&
+		scenario.RetirementDate.IsZero() &&
+		scenario.SSStartAge == 0 &&
+		scenario.TSPWithdrawalStrategy == "" &&
+		scenario.TSPWithdrawalTargetMonthly == nil &&
+		scenario.TSPWithdrawalRate == nil &&
+		scenario.TSPWithdrawalCeiling == nil &&
+		scenario.TSPWithdrawalFloor == nil &&
+		scenario.FixedRetirementIncome == nil &&
+		scenario.AnnuityPremiumPercent == nil &&
+		scenario.AnnuityPayoutRate == nil &&
+		scenario.AnnuityCOLARate == nil &&
+		scenario.AnnuitySurvivorPercent == nil &&
+		scenario.AnnuityGuaranteedYears == nil
 }
 
 // validateRetirementScenario validates a retirement scenario for an employee

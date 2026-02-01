@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -170,6 +171,106 @@ func (rs *RetirementScenario) UnmarshalYAML(value *yaml.Node) error {
 	}
 
 	return nil
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for RetirementScenario.
+func (rs *RetirementScenario) UnmarshalJSON(data []byte) error {
+	type Alias struct {
+		EmployeeName               string                 `json:"employee_name"`
+		RetirementDate             time.Time              `json:"retirement_date"`
+		SSStartAge                 int                    `json:"ss_start_age"`
+		TSPWithdrawalStrategy      string                 `json:"tsp_withdrawal_strategy"`
+		TSPWithdrawalTargetMonthly json.RawMessage        `json:"tsp_withdrawal_target_monthly,omitempty"`
+		TSPWithdrawalRate          json.RawMessage        `json:"tsp_withdrawal_rate,omitempty"`
+		TSPWithdrawalCeiling       json.RawMessage        `json:"tsp_withdrawal_ceiling,omitempty"`
+		TSPWithdrawalFloor         json.RawMessage        `json:"tsp_withdrawal_floor,omitempty"`
+		FixedRetirementIncome      *FixedRetirementIncome `json:"fixed_retirement_income,omitempty"`
+		AnnuityPremiumPercent      json.RawMessage        `json:"annuity_premium_percent,omitempty"`
+		AnnuityPayoutRate          json.RawMessage        `json:"annuity_payout_rate,omitempty"`
+		AnnuityCOLARate            json.RawMessage        `json:"annuity_cola_rate,omitempty"`
+		AnnuitySurvivorPercent     json.RawMessage        `json:"annuity_survivor_percent,omitempty"`
+		AnnuityGuaranteedYears     *int                   `json:"annuity_guaranteed_years,omitempty"`
+	}
+
+	var aux Alias
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	rs.EmployeeName = aux.EmployeeName
+	rs.RetirementDate = aux.RetirementDate
+	rs.SSStartAge = aux.SSStartAge
+	rs.TSPWithdrawalStrategy = aux.TSPWithdrawalStrategy
+	rs.FixedRetirementIncome = aux.FixedRetirementIncome
+	rs.AnnuityGuaranteedYears = aux.AnnuityGuaranteedYears
+
+	if val, err := parseOptionalDecimal(aux.TSPWithdrawalTargetMonthly); err != nil {
+		return err
+	} else if val != nil {
+		rs.TSPWithdrawalTargetMonthly = val
+	}
+
+	if val, err := parseOptionalDecimal(aux.TSPWithdrawalRate); err != nil {
+		return err
+	} else if val != nil {
+		rs.TSPWithdrawalRate = val
+	}
+
+	if val, err := parseOptionalDecimal(aux.TSPWithdrawalCeiling); err != nil {
+		return err
+	} else if val != nil {
+		rs.TSPWithdrawalCeiling = val
+	}
+
+	if val, err := parseOptionalDecimal(aux.TSPWithdrawalFloor); err != nil {
+		return err
+	} else if val != nil {
+		rs.TSPWithdrawalFloor = val
+	}
+
+	if val, err := parseOptionalDecimal(aux.AnnuityPremiumPercent); err != nil {
+		return err
+	} else if val != nil {
+		rs.AnnuityPremiumPercent = val
+	}
+
+	if val, err := parseOptionalDecimal(aux.AnnuityPayoutRate); err != nil {
+		return err
+	} else if val != nil {
+		rs.AnnuityPayoutRate = val
+	}
+
+	if val, err := parseOptionalDecimal(aux.AnnuityCOLARate); err != nil {
+		return err
+	} else if val != nil {
+		rs.AnnuityCOLARate = val
+	}
+
+	if val, err := parseOptionalDecimal(aux.AnnuitySurvivorPercent); err != nil {
+		return err
+	} else if val != nil {
+		rs.AnnuitySurvivorPercent = val
+	}
+
+	return nil
+}
+
+func parseOptionalDecimal(raw json.RawMessage) (*decimal.Decimal, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	str := strings.TrimSpace(string(raw))
+	if str == "" || str == "null" {
+		return nil, nil
+	}
+	if len(str) >= 2 && str[0] == '"' && str[len(str)-1] == '"' {
+		str = strings.Trim(str, "\"")
+	}
+	val, err := decimal.NewFromString(str)
+	if err != nil {
+		return nil, err
+	}
+	return &val, nil
 }
 
 // Scenario represents a complete retirement scenario for both employees

@@ -9,13 +9,22 @@ import (
 
 // CalculateBreakEvenTSPWithdrawalRate calculates the TSP withdrawal percentage needed to match current net income
 func (ce *CalculationEngine) CalculateBreakEvenTSPWithdrawalRate(config *domain.Configuration, scenario *domain.Scenario, targetNetIncome decimal.Decimal) (decimal.Decimal, *domain.AnnualCashFlow, error) {
-	personAEmployee := config.PersonalDetails["person_a"]
-	personBEmployee := config.PersonalDetails["person_b"]
+	personAEmployee, hasPersonA := getEmployee(config, "person_a")
+	if !hasPersonA {
+		return decimal.Zero, nil, fmt.Errorf("person_a employee details are required")
+	}
+	personBEmployee, hasPersonB := getEmployee(config, "person_b")
 
 	// Find the first year when both are fully retired
 	projectionStartYear := ProjectionBaseYear
 	personARetirementYear := scenario.PersonA.RetirementDate.Year() - projectionStartYear
-	personBRetirementYear := scenario.PersonB.RetirementDate.Year() - projectionStartYear
+	personBRetirementYear := personARetirementYear
+	if hasPersonB {
+		if scenario.PersonB.RetirementDate.IsZero() {
+			return decimal.Zero, nil, fmt.Errorf("person_b retirement date is required when person_b details are provided")
+		}
+		personBRetirementYear = scenario.PersonB.RetirementDate.Year() - projectionStartYear
+	}
 	firstFullRetirementYear := personARetirementYear
 	if personBRetirementYear > personARetirementYear {
 		firstFullRetirementYear = personBRetirementYear
@@ -88,8 +97,11 @@ func (ce *CalculationEngine) CalculateBreakEvenTSPWithdrawalRate(config *domain.
 // CalculateBreakEvenAnalysis calculates break-even TSP withdrawal rates for all scenarios
 func (ce *CalculationEngine) CalculateBreakEvenAnalysis(config *domain.Configuration) (*BreakEvenAnalysis, error) {
 	// Calculate current net income as the target
-	personAEmployee := config.PersonalDetails["person_a"]
-	personBEmployee := config.PersonalDetails["person_b"]
+	personAEmployee, hasPersonA := getEmployee(config, "person_a")
+	if !hasPersonA {
+		return nil, fmt.Errorf("person_a employee details are required")
+	}
+	personBEmployee, _ := getEmployee(config, "person_b")
 	targetNetIncome := ce.NetIncomeCalc.Calculate(&personAEmployee, &personBEmployee, ce.Debug)
 
 	results := make([]BreakEvenResult, len(config.Scenarios))

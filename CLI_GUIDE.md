@@ -36,6 +36,16 @@ Run deterministic retirement projections:
 ./fers-calc calculate config.yaml --format verbose
 ```
 
+**JSON input:**
+
+The CLI auto-detects `.json` configs. A UI smoke-test sample is available at:
+
+`docs/sample_config.json`
+
+```bash
+./fers-calc calculate docs/sample_config.json --format json
+```
+
 **Available formats:**
 - `console` - Simple console output (default)
 - `verbose` - Detailed console output

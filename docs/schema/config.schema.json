@@ -1,0 +1,246 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ferscalc3.local/schema/config.schema.json",
+  "title": "FERS Calculator Configuration",
+  "type": "object",
+  "required": ["personal_details", "global_assumptions", "scenarios"],
+  "properties": {
+    "personal_details": {
+      "type": "object",
+      "required": ["person_a"],
+      "properties": {
+        "person_a": { "$ref": "#/definitions/employee" },
+        "person_b": { "$ref": "#/definitions/employee" }
+      },
+      "additionalProperties": true
+    },
+    "global_assumptions": { "$ref": "#/definitions/globalAssumptions" },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/scenario" }
+    }
+  },
+  "definitions": {
+    "decimal": {
+      "anyOf": [
+        { "type": "number" },
+        { "type": "string", "pattern": "^-?\\d+(\\.\\d+)?$" }
+      ]
+    },
+    "employee": {
+      "type": "object",
+      "required": [
+        "birth_date",
+        "hire_date",
+        "current_salary",
+        "high_3_salary",
+        "tsp_balance_traditional",
+        "tsp_balance_roth",
+        "tsp_contribution_percent",
+        "ss_benefit_62",
+        "ss_benefit_fra",
+        "ss_benefit_70",
+        "fehb_premium_per_pay_period",
+        "survivor_benefit_election_percent"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "birth_date": { "type": "string", "format": "date-time" },
+        "hire_date": { "type": "string", "format": "date-time" },
+        "employment_type": { "type": "string" },
+        "current_salary": { "$ref": "#/definitions/decimal" },
+        "high_3_salary": { "$ref": "#/definitions/decimal" },
+        "tsp_balance_traditional": { "$ref": "#/definitions/decimal" },
+        "tsp_balance_roth": { "$ref": "#/definitions/decimal" },
+        "tsp_contribution_percent": { "$ref": "#/definitions/decimal" },
+        "ss_benefit_62": { "$ref": "#/definitions/decimal" },
+        "ss_benefit_fra": { "$ref": "#/definitions/decimal" },
+        "ss_benefit_70": { "$ref": "#/definitions/decimal" },
+        "fehb_premium_per_pay_period": { "$ref": "#/definitions/decimal" },
+        "survivor_benefit_election_percent": { "$ref": "#/definitions/decimal" },
+        "sick_leave_hours": { "$ref": "#/definitions/decimal" },
+        "fixed_retirement_income": { "$ref": "#/definitions/fixedIncome" }
+      }
+    },
+    "fixedIncome": {
+      "type": "object",
+      "required": ["annual_amount"],
+      "properties": {
+        "annual_amount": { "$ref": "#/definitions/decimal" },
+        "cola_rate": { "$ref": "#/definitions/decimal" }
+      }
+    },
+    "globalAssumptions": {
+      "type": "object",
+      "required": [
+        "inflation_rate",
+        "fehb_premium_inflation",
+        "tsp_return_pre_retirement",
+        "tsp_return_post_retirement",
+        "cola_general_rate",
+        "projection_years",
+        "current_location"
+      ],
+      "properties": {
+        "inflation_rate": { "$ref": "#/definitions/decimal" },
+        "fehb_premium_inflation": { "$ref": "#/definitions/decimal" },
+        "tsp_return_pre_retirement": { "$ref": "#/definitions/decimal" },
+        "tsp_return_post_retirement": { "$ref": "#/definitions/decimal" },
+        "cola_general_rate": { "$ref": "#/definitions/decimal" },
+        "federal_bracket_inflation_rate": { "$ref": "#/definitions/decimal" },
+        "projection_years": { "type": "integer", "minimum": 1 },
+        "current_location": { "$ref": "#/definitions/location" },
+        "monte_carlo_settings": { "$ref": "#/definitions/monteCarloSettings" },
+        "federal_rules": { "$ref": "#/definitions/federalRules" },
+        "tsp_statistical_models": { "$ref": "#/definitions/tspStatisticalModels" }
+      }
+    },
+    "location": {
+      "type": "object",
+      "required": ["state"],
+      "properties": {
+        "state": { "type": "string" },
+        "county": { "type": "string" },
+        "municipality": { "type": "string" }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "required": ["name", "person_a"],
+      "properties": {
+        "name": { "type": "string" },
+        "person_a": { "$ref": "#/definitions/retirementScenario" },
+        "person_b": { "$ref": "#/definitions/retirementScenario" },
+        "mortality": { "$ref": "#/definitions/scenarioMortality" }
+      }
+    },
+    "scenarioMortality": {
+      "type": "object",
+      "properties": {
+        "person_a": { "$ref": "#/definitions/mortalitySpec" },
+        "person_b": { "$ref": "#/definitions/mortalitySpec" },
+        "assumptions": { "$ref": "#/definitions/mortalityAssumptions" }
+      }
+    },
+    "mortalitySpec": {
+      "type": "object",
+      "properties": {
+        "death_date": { "type": "string", "format": "date-time" },
+        "death_age": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "mortalityAssumptions": {
+      "type": "object",
+      "properties": {
+        "survivor_spending_factor": { "$ref": "#/definitions/decimal" },
+        "tsp_spousal_transfer": { "type": "string", "enum": ["merge", "separate"] },
+        "filing_status_switch": { "type": "string", "enum": ["next_year", "immediate"] }
+      }
+    },
+    "retirementScenario": {
+      "type": "object",
+      "required": ["employee_name", "retirement_date", "ss_start_age", "tsp_withdrawal_strategy"],
+      "properties": {
+        "employee_name": { "type": "string" },
+        "retirement_date": { "type": "string", "format": "date-time" },
+        "ss_start_age": { "type": "integer", "minimum": 62, "maximum": 70 },
+        "tsp_withdrawal_strategy": {
+          "type": "string",
+          "enum": ["4_percent_rule", "need_based", "variable_percentage", "fixed_annuity"]
+        },
+        "tsp_withdrawal_target_monthly": { "$ref": "#/definitions/decimal" },
+        "tsp_withdrawal_rate": { "$ref": "#/definitions/decimal" },
+        "tsp_withdrawal_ceiling": { "$ref": "#/definitions/decimal" },
+        "tsp_withdrawal_floor": { "$ref": "#/definitions/decimal" },
+        "fixed_retirement_income": { "$ref": "#/definitions/fixedIncome" },
+        "annuity_premium_percent": { "$ref": "#/definitions/decimal" },
+        "annuity_payout_rate": { "$ref": "#/definitions/decimal" },
+        "annuity_cola_rate": { "$ref": "#/definitions/decimal" },
+        "annuity_survivor_percent": { "$ref": "#/definitions/decimal" },
+        "annuity_guaranteed_years": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "monteCarloSettings": {
+      "type": "object",
+      "properties": {
+        "tsp_return_variability": { "$ref": "#/definitions/decimal" },
+        "inflation_variability": { "$ref": "#/definitions/decimal" },
+        "cola_variability": { "$ref": "#/definitions/decimal" },
+        "fehb_variability": { "$ref": "#/definitions/decimal" },
+        "stress_tests": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/stressScenario" }
+        }
+      }
+    },
+    "stressScenario": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "repeat": { "type": "boolean" },
+        "years": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/stressYear" }
+        }
+      }
+    },
+    "stressYear": {
+      "type": "object",
+      "properties": {
+        "year": { "type": "integer" },
+        "inflation": { "$ref": "#/definitions/decimal" },
+        "tsp_return": { "$ref": "#/definitions/decimal" },
+        "cola": { "$ref": "#/definitions/decimal" },
+        "fehb": { "$ref": "#/definitions/decimal" }
+      }
+    },
+    "federalRules": {
+      "type": "object",
+      "properties": {
+        "fers_rules": { "$ref": "#/definitions/fersRules" },
+        "tax_rules": { "$ref": "#/definitions/taxRules" },
+        "rmd_rules": { "$ref": "#/definitions/rmdRules" }
+      }
+    },
+    "fersRules": {
+      "type": "object",
+      "properties": {
+        "srs_earnings_limit": { "$ref": "#/definitions/decimal" }
+      }
+    },
+    "taxRules": {
+      "type": "object",
+      "properties": {
+        "standard_deduction_single": { "$ref": "#/definitions/decimal" },
+        "standard_deduction_joint": { "$ref": "#/definitions/decimal" }
+      }
+    },
+    "rmdRules": {
+      "type": "object",
+      "properties": {
+        "starting_age": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "tspStatisticalModels": {
+      "type": "object",
+      "properties": {
+        "c_fund": { "$ref": "#/definitions/tspFundStats" },
+        "s_fund": { "$ref": "#/definitions/tspFundStats" },
+        "i_fund": { "$ref": "#/definitions/tspFundStats" },
+        "f_fund": { "$ref": "#/definitions/tspFundStats" },
+        "g_fund": { "$ref": "#/definitions/tspFundStats" }
+      }
+    },
+    "tspFundStats": {
+      "type": "object",
+      "properties": {
+        "mean": { "$ref": "#/definitions/decimal" },
+        "standard_dev": { "$ref": "#/definitions/decimal" },
+        "data_source": { "type": "string" },
+        "last_updated": { "type": "string" }
+      }
+    }
+  }
+}

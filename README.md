@@ -75,6 +75,18 @@ A production-ready retirement planning suite for Federal Employees Retirement Sy
 
    **Tip**: Use manual `tsp_allocation` blocks for Monte Carlo variability; lifecycle funds yield identical paths.
 
+### JSON Configuration (UI-Friendly)
+
+For debugging or UI smoke testing, a JSON example is available at:
+
+`docs/sample_config.json`
+
+You can run it with:
+
+```bash
+./fers-calc calculate docs/sample_config.json --format json
+```
+
 ### Command Line Options
 
 To help you understand the core commands, here's a breakdown:

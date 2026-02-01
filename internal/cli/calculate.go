@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/rpgo/retirement-calculator/internal/calculation"
 	"github.com/rpgo/retirement-calculator/internal/config"
@@ -25,7 +27,7 @@ Examples:
   fers-calc calculate config.yaml --format csv --output report.csv
   fers-calc calculate config.yaml --format verbose --debug`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		inputFile := args[0]
 
 		// Get flags
@@ -40,16 +42,20 @@ Examples:
 
 		// Parse input configuration
 		parser := config.NewInputParser()
-		cfg, err := parser.LoadFromFile(inputFile)
+		var cfg *domain.Configuration
+		var err error
+		if strings.EqualFold(filepath.Ext(inputFile), ".json") {
+			cfg, err = parser.LoadFromJSONFile(inputFile)
+		} else {
+			cfg, err = parser.LoadFromFile(inputFile)
+		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error loading configuration: %w", err)
 		}
 
 		// Validate configuration
 		if err := parser.ValidateConfiguration(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "Configuration validation failed: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("configuration validation failed: %w", err)
 		}
 
 		if !quiet {
@@ -63,10 +69,9 @@ Examples:
 		}
 
 		// Run scenarios
-		results, err := engine.RunScenarios(cfg)
+		results, err := engine.RunScenariosWithContext(cmd.Context(), cfg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Calculation failed: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("calculation failed: %w", err)
 		}
 
 		if !quiet {
@@ -77,8 +82,7 @@ Examples:
 		if outputFile != "" {
 			// Output to file
 			if err := generateReportToFile(results, format, outputFile); err != nil {
-				fmt.Fprintf(os.Stderr, "Error generating report: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error generating report: %w", err)
 			}
 			if !quiet {
 				fmt.Fprintf(os.Stderr, "Report written to %s\n", outputFile)
@@ -86,10 +90,10 @@ Examples:
 		} else {
 			// Output to stdout
 			if err := output.GenerateReport(results, format); err != nil {
-				fmt.Fprintf(os.Stderr, "Error generating report: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error generating report: %w", err)
 			}
 		}
+		return nil
 	},
 }
 

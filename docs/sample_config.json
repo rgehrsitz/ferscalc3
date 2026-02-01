@@ -1,0 +1,115 @@
+{
+  "personal_details": {
+    "person_a": {
+      "name": "Person A",
+      "birth_date": "1965-02-25T00:00:00Z",
+      "hire_date": "1987-06-22T00:00:00Z",
+      "employment_type": "federal",
+      "current_salary": 190000,
+      "high_3_salary": 185000,
+      "tsp_balance_traditional": 250000,
+      "tsp_balance_roth": 0,
+      "tsp_contribution_percent": 0.12,
+      "ss_benefit_62": 2800,
+      "ss_benefit_fra": 4000,
+      "ss_benefit_70": 5000,
+      "fehb_premium_per_pay_period": 480,
+      "survivor_benefit_election_percent": 0.0,
+      "sick_leave_hours": 1200
+    },
+    "person_b": {
+      "name": "Person B",
+      "birth_date": "1967-07-10T00:00:00Z",
+      "hire_date": "1990-08-15T00:00:00Z",
+      "employment_type": "federal",
+      "current_salary": 150000,
+      "high_3_salary": 145000,
+      "tsp_balance_traditional": 200000,
+      "tsp_balance_roth": 25000,
+      "tsp_contribution_percent": 0.10,
+      "ss_benefit_62": 2400,
+      "ss_benefit_fra": 3400,
+      "ss_benefit_70": 4300,
+      "fehb_premium_per_pay_period": 0,
+      "survivor_benefit_election_percent": 0.0
+    }
+  },
+  "global_assumptions": {
+    "inflation_rate": 0.025,
+    "fehb_premium_inflation": 0.06,
+    "tsp_return_pre_retirement": 0.07,
+    "tsp_return_post_retirement": 0.05,
+    "cola_general_rate": 0.025,
+    "federal_bracket_inflation_rate": 0.025,
+    "projection_years": 25,
+    "current_location": {
+      "state": "PA",
+      "county": "Bucks",
+      "municipality": "Upper Makefield Township"
+    },
+    "monte_carlo_settings": {
+      "tsp_return_variability": 0.15,
+      "inflation_variability": 0.02,
+      "cola_variability": 0.02,
+      "fehb_variability": 0.05,
+      "stress_tests": {
+        "mild_recession": {
+          "name": "Mild Recession",
+          "description": "Two-year mild downturn followed by normalization.",
+          "repeat": false,
+          "years": [
+            { "year": 1, "inflation": 0.015, "tsp_return": -0.08, "cola": 0.01, "fehb": 0.07 },
+            { "year": 2, "inflation": 0.02, "tsp_return": -0.04, "cola": 0.01, "fehb": 0.06 },
+            { "year": 3, "inflation": 0.025, "tsp_return": 0.06, "cola": 0.02, "fehb": 0.05 }
+          ]
+        }
+      }
+    },
+    "federal_rules": {
+      "fers_rules": {
+        "srs_earnings_limit": 23400
+      },
+      "tax_rules": {
+        "standard_deduction_single": 14600,
+        "standard_deduction_joint": 29200
+      },
+      "rmd_rules": {
+        "starting_age": 73
+      }
+    },
+    "tsp_statistical_models": {
+      "c_fund": { "mean": 0.10, "standard_dev": 0.16, "data_source": "Sample", "last_updated": "2025-01-01" },
+      "s_fund": { "mean": 0.11, "standard_dev": 0.18, "data_source": "Sample", "last_updated": "2025-01-01" },
+      "i_fund": { "mean": 0.08, "standard_dev": 0.15, "data_source": "Sample", "last_updated": "2025-01-01" },
+      "f_fund": { "mean": 0.04, "standard_dev": 0.06, "data_source": "Sample", "last_updated": "2025-01-01" },
+      "g_fund": { "mean": 0.03, "standard_dev": 0.01, "data_source": "Sample", "last_updated": "2025-01-01" }
+    }
+  },
+  "scenarios": [
+    {
+      "name": "Both Retire",
+      "person_a": {
+        "employee_name": "person_a",
+        "retirement_date": "2030-01-01T00:00:00Z",
+        "ss_start_age": 67,
+        "tsp_withdrawal_strategy": "variable_percentage",
+        "tsp_withdrawal_rate": 0.04
+      },
+      "person_b": {
+        "employee_name": "person_b",
+        "retirement_date": "2031-01-01T00:00:00Z",
+        "ss_start_age": 67,
+        "tsp_withdrawal_strategy": "need_based",
+        "tsp_withdrawal_target_monthly": 3000
+      },
+      "mortality": {
+        "person_a": { "death_age": 90 },
+        "assumptions": {
+          "survivor_spending_factor": 0.8,
+          "tsp_spousal_transfer": "merge",
+          "filing_status_switch": "next_year"
+        }
+      }
+    }
+  ]
+}

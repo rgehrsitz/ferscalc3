@@ -149,12 +149,170 @@ func TestValidateConfiguration_MissingPersonB(t *testing.T) {
 		PersonalDetails: map[string]domain.Employee{
 			"person_a": createValidEmployee("person_a", "1963-06-15", "1985-03-20"),
 		},
+		GlobalAssumptions: domain.GlobalAssumptions{
+			InflationRate:           decimal.NewFromFloat(0.025),
+			FEHBPremiumInflation:    decimal.NewFromFloat(0.04),
+			TSPReturnPreRetirement:  decimal.NewFromFloat(0.07),
+			TSPReturnPostRetirement: decimal.NewFromFloat(0.05),
+			COLAGeneralRate:         decimal.NewFromFloat(0.02),
+			ProjectionYears:         30,
+			CurrentLocation: domain.Location{
+				State:        "PA",
+				County:       "Bucks",
+				Municipality: "Upper Makefield",
+			},
+		},
 		Scenarios: []domain.Scenario{},
 	}
 
 	err := parser.ValidateConfiguration(config)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "person_b employee details are required")
+	assert.Contains(t, err.Error(), "no scenarios provided")
+}
+
+func TestValidateConfiguration_PersonBScenarioWithoutDetails(t *testing.T) {
+	parser := NewInputParser()
+	config := createValidTestConfiguration()
+	delete(config.PersonalDetails, "person_b")
+
+	err := parser.ValidateConfiguration(config)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "person_b scenario provided but person_b details are missing")
+}
+
+func TestLoadFromJSON_SingleParticipant(t *testing.T) {
+	parser := NewInputParser()
+	jsonConfig := []byte(`{
+  "personal_details": {
+    "person_a": {
+      "name": "Person A",
+      "birth_date": "1965-02-25T00:00:00Z",
+      "hire_date": "1987-06-22T00:00:00Z",
+      "employment_type": "federal",
+      "current_salary": 190000,
+      "high_3_salary": 185000,
+      "tsp_balance_traditional": 250000,
+      "tsp_balance_roth": 0,
+      "tsp_contribution_percent": 0.12,
+      "ss_benefit_62": 2800,
+      "ss_benefit_fra": 4000,
+      "ss_benefit_70": 5000,
+      "fehb_premium_per_pay_period": 480,
+      "survivor_benefit_election_percent": 0.0
+    }
+  },
+  "global_assumptions": {
+    "inflation_rate": 0.025,
+    "fehb_premium_inflation": 0.06,
+    "tsp_return_pre_retirement": 0.07,
+    "tsp_return_post_retirement": 0.05,
+    "cola_general_rate": 0.025,
+    "projection_years": 25,
+    "current_location": {
+      "state": "PA",
+      "county": "Bucks",
+      "municipality": "Upper Makefield Township"
+    }
+  },
+  "scenarios": [
+    {
+      "name": "Single Retiree",
+      "person_a": {
+        "employee_name": "person_a",
+        "retirement_date": "2030-01-01T00:00:00Z",
+        "ss_start_age": 67,
+        "tsp_withdrawal_strategy": "variable_percentage",
+        "tsp_withdrawal_rate": "0.04"
+      }
+    }
+  ]
+}`)
+
+	cfg, err := parser.LoadFromJSON(jsonConfig)
+	assert.NoError(t, err)
+	if assert.NotNil(t, cfg) {
+		assert.Contains(t, cfg.PersonalDetails, "person_a")
+		assert.NotContains(t, cfg.PersonalDetails, "person_b")
+		assert.Len(t, cfg.Scenarios, 1)
+	}
+}
+
+func TestLoadFromJSON_NumberDecimalFields(t *testing.T) {
+	parser := NewInputParser()
+	jsonConfig := []byte(`{
+  "personal_details": {
+    "person_a": {
+      "name": "Person A",
+      "birth_date": "1965-02-25T00:00:00Z",
+      "hire_date": "1987-06-22T00:00:00Z",
+      "employment_type": "federal",
+      "current_salary": 190000,
+      "high_3_salary": 185000,
+      "tsp_balance_traditional": 250000,
+      "tsp_balance_roth": 0,
+      "tsp_contribution_percent": 0.12,
+      "ss_benefit_62": 2800,
+      "ss_benefit_fra": 4000,
+      "ss_benefit_70": 5000,
+      "fehb_premium_per_pay_period": 480,
+      "survivor_benefit_election_percent": 0.0
+    }
+  },
+  "global_assumptions": {
+    "inflation_rate": 0.025,
+    "fehb_premium_inflation": 0.06,
+    "tsp_return_pre_retirement": 0.07,
+    "tsp_return_post_retirement": 0.05,
+    "cola_general_rate": 0.025,
+    "projection_years": 25,
+    "current_location": {
+      "state": "PA"
+    }
+  },
+  "scenarios": [
+    {
+      "name": "Numeric Fields",
+      "person_a": {
+        "employee_name": "person_a",
+        "retirement_date": "2030-01-01T00:00:00Z",
+        "ss_start_age": 67,
+        "tsp_withdrawal_strategy": "variable_percentage",
+        "tsp_withdrawal_rate": 0.04,
+        "annuity_payout_rate": 0.055
+      }
+    }
+  ]
+}`)
+
+	cfg, err := parser.LoadFromJSON(jsonConfig)
+	assert.NoError(t, err)
+	if assert.NotNil(t, cfg) {
+		rate := cfg.Scenarios[0].PersonA.TSPWithdrawalRate
+		if assert.NotNil(t, rate) {
+			assert.Equal(t, "0.04", rate.String())
+		}
+		payout := cfg.Scenarios[0].PersonA.AnnuityPayoutRate
+		if assert.NotNil(t, payout) {
+			assert.Equal(t, "0.055", payout.String())
+		}
+	}
+}
+
+func TestLoadSampleConfigJSON(t *testing.T) {
+	parser := NewInputParser()
+	data, err := os.ReadFile("../../docs/sample_config.json")
+	assert.NoError(t, err)
+	if err != nil {
+		return
+	}
+
+	cfg, err := parser.LoadFromJSON(data)
+	assert.NoError(t, err)
+	if assert.NotNil(t, cfg) {
+		assert.Contains(t, cfg.PersonalDetails, "person_a")
+		assert.Contains(t, cfg.PersonalDetails, "person_b")
+		assert.Len(t, cfg.Scenarios, 1)
+	}
 }
 
 func TestValidateConfiguration_NoScenarios(t *testing.T) {
@@ -350,7 +508,7 @@ func TestValidateScenario_Success(t *testing.T) {
 		},
 	}
 
-	err := parser.validateScenario(0, &scenario)
+	err := parser.validateScenario(0, &scenario, true)
 	assert.NoError(t, err)
 }
 
@@ -360,7 +518,7 @@ func TestValidateScenario_EmptyName(t *testing.T) {
 		Name: "",
 	}
 
-	err := parser.validateScenario(0, &scenario)
+	err := parser.validateScenario(0, &scenario, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "scenario name is required")
 }

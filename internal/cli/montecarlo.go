@@ -31,7 +31,7 @@ Examples:
   fers-calc monte-carlo dr.yaml --format csv --output reports/monte-carlo
   fers-calc monte-carlo dr.yaml --format json --output results.json --historical=false`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		inputFile := args[0]
 
 		format, _ := cmd.Flags().GetString("format")
@@ -53,10 +53,15 @@ Examples:
 		}
 
 		parser := config.NewInputParser()
-		cfg, err := parser.LoadFromFile(inputFile)
+		var cfg *domain.Configuration
+		var err error
+		if strings.EqualFold(filepath.Ext(inputFile), ".json") {
+			cfg, err = parser.LoadFromJSONFile(inputFile)
+		} else {
+			cfg, err = parser.LoadFromFile(inputFile)
+		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error loading configuration: %w", err)
 		}
 
 		if !quiet {
@@ -65,8 +70,7 @@ Examples:
 
 		historicalData := calculation.NewHistoricalDataManager(dataDir)
 		if err := historicalData.LoadAllData(); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load historical data: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to load historical data: %w", err)
 		}
 
 		engine := calculation.NewFERSMonteCarloEngine(cfg, historicalData)
@@ -82,19 +86,17 @@ Examples:
 
 		stressSelection, selectionOrder, err := resolveStressScenarioSelection(cfg, dataDir, stressFile, stressList, stressAll)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to resolve stress scenarios: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to resolve stress scenarios: %w", err)
 		}
 
 		if len(selectionOrder) == 0 {
-			runSingleMonteCarlo(engine, mcConfig, format, outputPath, quiet)
-			return
+			return runSingleMonteCarlo(engine, mcConfig, format, outputPath, quiet)
 		}
 
 		if err := runStressBatch(engine, mcConfig, selectionOrder, stressSelection, stressRepeat, stressSweep, format, outputPath, quiet); err != nil {
-			fmt.Fprintf(os.Stderr, "Batch Monte Carlo failed: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("batch monte carlo failed: %w", err)
 		}
+		return nil
 	},
 }
 
@@ -281,15 +283,14 @@ func printSummary(quiet bool, result *calculation.FERSMonteCarloResult) {
 		successRate, result.MedianNetIncome.StringFixed(0))
 }
 
-func runSingleMonteCarlo(engine *calculation.FERSMonteCarloEngine, cfg calculation.FERSMonteCarloConfig, format, outputPath string, quiet bool) {
+func runSingleMonteCarlo(engine *calculation.FERSMonteCarloEngine, cfg calculation.FERSMonteCarloConfig, format, outputPath string, quiet bool) error {
 	if !quiet {
 		fmt.Fprintf(os.Stderr, "Running %d Monte Carlo simulations...\n", cfg.NumSimulations)
 	}
 
 	result, err := engine.RunFERSMonteCarlo(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Monte Carlo simulation failed: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("monte carlo simulation failed: %w", err)
 	}
 
 	if !quiet {
@@ -297,11 +298,11 @@ func runSingleMonteCarlo(engine *calculation.FERSMonteCarloEngine, cfg calculati
 	}
 
 	if err := generateMonteCarloOutput(format, outputPath, result, cfg, quiet); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to generate Monte Carlo output: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to generate monte carlo output: %w", err)
 	}
 
 	printSummary(quiet, result)
+	return nil
 }
 
 func resolveStressScenarioSelection(cfg *domain.Configuration, dataDir, stressFile, requested string, useAll bool) (map[string]*domain.StressScenario, []string, error) {

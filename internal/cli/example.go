@@ -18,7 +18,7 @@ Example:
   fers-calc example config.yaml
   fers-calc example > my_config.yaml`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		exampleConfig := `# FERS Retirement Planning Calculator - Example Configuration
 # This is a sample configuration file showing all available options.
 
@@ -99,14 +99,14 @@ scenarios:
 			// Write to file
 			outputFile := args[0]
 			if err := os.WriteFile(outputFile, []byte(exampleConfig), 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Error writing example config: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error writing example config: %w", err)
 			}
 			fmt.Fprintf(os.Stderr, "Example configuration written to %s\n", outputFile)
 		} else {
 			// Write to stdout
 			fmt.Print(exampleConfig)
 		}
+		return nil
 	},
 }
 

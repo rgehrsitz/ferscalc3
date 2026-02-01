@@ -98,8 +98,11 @@ func (ce *CalculationEngine) SetLogger(l Logger) {
 // RunScenario calculates a complete retirement scenario
 func (ce *CalculationEngine) RunScenario(ctx context.Context, config *domain.Configuration, scenario *domain.Scenario) (*domain.ScenarioSummary, error) {
 	// Local neutral aliases to support incremental rename from human names to person_a/person_b
-	personAEmployee := config.PersonalDetails["person_a"]
-	personBEmployee := config.PersonalDetails["person_b"]
+	personAEmployee, hasPersonA := getEmployee(config, "person_a")
+	if !hasPersonA {
+		return nil, fmt.Errorf("person_a employee details are required")
+	}
+	personBEmployee, hasPersonB := getEmployee(config, "person_b")
 
 	// Use neutral local variable names
 	personA := personAEmployee
@@ -110,7 +113,7 @@ func (ce *CalculationEngine) RunScenario(ctx context.Context, config *domain.Con
 		return nil, fmt.Errorf("person_a's retirement date (%s) cannot be before hire date (%s)",
 			scenario.PersonA.RetirementDate.Format("2006-01-02"), personA.HireDate.Format("2006-01-02"))
 	}
-	if scenario.PersonB.RetirementDate.Before(personB.HireDate) {
+	if hasPersonB && scenario.PersonB.RetirementDate.Before(personB.HireDate) {
 		return nil, fmt.Errorf("person_b's retirement date (%s) cannot be before hire date (%s)",
 			scenario.PersonB.RetirementDate.Format("2006-01-02"), personB.HireDate.Format("2006-01-02"))
 	}
@@ -258,10 +261,14 @@ func (ce *CalculationEngine) calculateDeterministicSuccessRate(projection []doma
 
 // calculateMedicarePremium moved to medicare.go
 
-// RunScenarios runs all scenarios and returns a comparison
+// RunScenarios runs all scenarios and returns a comparison.
 func (ce *CalculationEngine) RunScenarios(config *domain.Configuration) (*domain.ScenarioComparison, error) {
+	return ce.RunScenariosWithContext(context.Background(), config)
+}
+
+// RunScenariosWithContext runs all scenarios and returns a comparison.
+func (ce *CalculationEngine) RunScenariosWithContext(ctx context.Context, config *domain.Configuration) (*domain.ScenarioComparison, error) {
 	scenarios := make([]domain.ScenarioSummary, len(config.Scenarios))
-	ctx := context.Background()
 
 	for i, scenario := range config.Scenarios {
 		summary, err := ce.RunScenario(ctx, config, &scenario)
@@ -272,8 +279,11 @@ func (ce *CalculationEngine) RunScenarios(config *domain.Configuration) (*domain
 	}
 
 	// Calculate baseline (current net income)
-	personA := config.PersonalDetails["person_a"]
-	personB := config.PersonalDetails["person_b"]
+	personA, hasPersonA := getEmployee(config, "person_a")
+	if !hasPersonA {
+		return nil, fmt.Errorf("person_a employee details are required")
+	}
+	personB, _ := getEmployee(config, "person_b")
 	baselineNetIncome := ce.NetIncomeCalc.Calculate(&personA, &personB, ce.Debug)
 
 	comparison := &domain.ScenarioComparison{
