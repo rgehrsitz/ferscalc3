@@ -51,12 +51,12 @@ func NewFederalTaxCalculator2025() *FederalTaxCalculator {
 		AdditionalStdDed:  decimal.NewFromInt(1550),  // Per person 65+
 		Brackets: []TaxBracket{
 			{decimal.Zero, decimal.NewFromInt(23200), decimal.NewFromFloat(0.10)},
-			{decimal.NewFromInt(23201), decimal.NewFromInt(94300), decimal.NewFromFloat(0.12)},
-			{decimal.NewFromInt(94301), decimal.NewFromInt(201050), decimal.NewFromFloat(0.22)},
-			{decimal.NewFromInt(201051), decimal.NewFromInt(383900), decimal.NewFromFloat(0.24)},
-			{decimal.NewFromInt(383901), decimal.NewFromInt(487450), decimal.NewFromFloat(0.32)},
-			{decimal.NewFromInt(487451), decimal.NewFromInt(731200), decimal.NewFromFloat(0.35)},
-			{decimal.NewFromInt(731201), decimal.NewFromInt(999999999), decimal.NewFromFloat(0.37)},
+			{decimal.NewFromInt(23200), decimal.NewFromInt(94300), decimal.NewFromFloat(0.12)},
+			{decimal.NewFromInt(94300), decimal.NewFromInt(201050), decimal.NewFromFloat(0.22)},
+			{decimal.NewFromInt(201050), decimal.NewFromInt(383900), decimal.NewFromFloat(0.24)},
+			{decimal.NewFromInt(383900), decimal.NewFromInt(487450), decimal.NewFromFloat(0.32)},
+			{decimal.NewFromInt(487450), decimal.NewFromInt(731200), decimal.NewFromFloat(0.35)},
+			{decimal.NewFromInt(731200), decimal.NewFromInt(999999999), decimal.NewFromFloat(0.37)},
 		},
 	}
 }
@@ -70,12 +70,12 @@ func NewFederalTaxCalculator(config domain.FederalTaxConfig) *FederalTaxCalculat
 	if len(bracketsMFJ) == 0 { // fallback defaults
 		bracketsMFJ = []TaxBracket{
 			{decimal.Zero, decimal.NewFromInt(23200), decimal.NewFromFloat(0.10)},
-			{decimal.NewFromInt(23201), decimal.NewFromInt(94300), decimal.NewFromFloat(0.12)},
-			{decimal.NewFromInt(94301), decimal.NewFromInt(201050), decimal.NewFromFloat(0.22)},
-			{decimal.NewFromInt(201051), decimal.NewFromInt(383900), decimal.NewFromFloat(0.24)},
-			{decimal.NewFromInt(383901), decimal.NewFromInt(487450), decimal.NewFromFloat(0.32)},
-			{decimal.NewFromInt(487451), decimal.NewFromInt(731200), decimal.NewFromFloat(0.35)},
-			{decimal.NewFromInt(731201), decimal.NewFromInt(999999999), decimal.NewFromFloat(0.37)},
+			{decimal.NewFromInt(23200), decimal.NewFromInt(94300), decimal.NewFromFloat(0.12)},
+			{decimal.NewFromInt(94300), decimal.NewFromInt(201050), decimal.NewFromFloat(0.22)},
+			{decimal.NewFromInt(201050), decimal.NewFromInt(383900), decimal.NewFromFloat(0.24)},
+			{decimal.NewFromInt(383900), decimal.NewFromInt(487450), decimal.NewFromFloat(0.32)},
+			{decimal.NewFromInt(487450), decimal.NewFromInt(731200), decimal.NewFromFloat(0.35)},
+			{decimal.NewFromInt(731200), decimal.NewFromInt(999999999), decimal.NewFromFloat(0.37)},
 		}
 	}
 	var bracketsSingle []TaxBracket
@@ -630,6 +630,7 @@ type TaxCalculationInput struct {
 	PersonA, PersonB *domain.Employee
 	Scenario         *domain.Scenario
 	Year             int
+	BaseYear         int
 	IsRetired        bool
 	Pensions         [2]decimal.Decimal // [PersonA, PersonB]
 	SurvivorPensions [2]decimal.Decimal // [PersonA, PersonB]
@@ -669,6 +670,7 @@ func (ce *CalculationEngine) calculateTaxes(input TaxCalculationInput) TaxCalcul
 		input.TSPWithdrawals[0], input.TSPWithdrawals[1],
 		input.SocialSecurity[0], input.SocialSecurity[1],
 		input.WorkingIncome[0], input.WorkingIncome[1],
+		input.BaseYear,
 	)
 
 	var result taxResult
@@ -712,6 +714,7 @@ type taxComputationContext struct {
 	personA, personB *domain.Employee
 	scenario         *domain.Scenario
 	year             int
+	baseYear         int
 	projectionDate   time.Time
 	filingStatus     string
 	seniors          int
@@ -742,18 +745,23 @@ func newTaxComputationContext(
 	tspWithdrawalA, tspWithdrawalB,
 	socialSecurityA, socialSecurityB decimal.Decimal,
 	workingIncomeA, workingIncomeB decimal.Decimal,
+	baseYear int,
 ) taxComputationContext {
-	projectionDate := time.Date(ProjectionBaseYear, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(year, 0, 0)
+	if baseYear == 0 {
+		baseYear = ProjectionBaseYear
+	}
+	projectionDate := time.Date(baseYear, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(year, 0, 0)
 	ageA := personA.Age(projectionDate)
 	ageB := personB.Age(projectionDate)
 
-	filingStatus, seniors, personADeceased, personBDeceased := determineFilingStatusAndSeniors(scenario, personA, personB, year, ageA, ageB)
+	filingStatus, seniors, personADeceased, personBDeceased := determineFilingStatusAndSeniors(scenario, personA, personB, year, ageA, ageB, baseYear)
 
 	return taxComputationContext{
 		personA:          personA,
 		personB:          personB,
 		scenario:         scenario,
 		year:             year,
+		baseYear:         baseYear,
 		projectionDate:   projectionDate,
 		filingStatus:     filingStatus,
 		seniors:          seniors,
@@ -775,7 +783,7 @@ func newTaxComputationContext(
 	}
 }
 
-func determineFilingStatusAndSeniors(scenario *domain.Scenario, personA, personB *domain.Employee, year, ageA, ageB int) (string, int, bool, bool) {
+func determineFilingStatusAndSeniors(scenario *domain.Scenario, personA, personB *domain.Employee, year, ageA, ageB int, baseYear int) (string, int, bool, bool) {
 	filingStatus := "mfj"
 	seniors := 0
 	if ageA >= 65 {
@@ -786,7 +794,7 @@ func determineFilingStatusAndSeniors(scenario *domain.Scenario, personA, personB
 	}
 
 	const mortalityBufferYears = 5
-	personADeathIndex, personBDeathIndex := deriveDeathYearIndexes(scenario, personA, personB, year+1+mortalityBufferYears)
+	personADeathIndex, personBDeathIndex := deriveDeathYearIndexes(scenario, personA, personB, year+1+mortalityBufferYears, baseYear)
 	personADeceased := personADeathIndex != nil && year >= *personADeathIndex
 	personBDeceased := personBDeathIndex != nil && year >= *personBDeathIndex
 

@@ -92,21 +92,8 @@ func NewMedicareCalculatorWithConfig(config domain.MedicareConfig) *MedicareCalc
 func (mc *MedicareCalculator) CalculatePartBPremium(magi decimal.Decimal, isMarriedFilingJointly bool) decimal.Decimal {
 	premium := mc.BasePremium2025
 
-	// Find applicable IRMAA surcharge
-	for _, threshold := range mc.IRMAAThresholds {
-		var applicableThreshold decimal.Decimal
-		if isMarriedFilingJointly {
-			applicableThreshold = threshold.IncomeThresholdJoint
-		} else {
-			applicableThreshold = threshold.IncomeThresholdSingle
-		}
-
-		if magi.GreaterThan(applicableThreshold) {
-			premium = premium.Add(threshold.MonthlySurcharge)
-		} else {
-			break // Stop at first threshold not exceeded
-		}
-	}
+	// Find applicable IRMAA surcharge (single highest tier, not cumulative)
+	premium = premium.Add(mc.irmaaSurchargeForMAGI(magi, isMarriedFilingJointly))
 
 	return premium
 }
@@ -117,7 +104,7 @@ func (mc *MedicareCalculator) CalculateAnnualPartBCost(estimatedMAGI decimal.Dec
 	basePremium := mc.BasePremium2025
 
 	// Calculate IRMAA surcharge based on MAGI
-	irmaaSurcharge := mc.calculateIRMAASurcharge(estimatedMAGI, isMarriedFilingJointly)
+	irmaaSurcharge := mc.irmaaSurchargeForMAGI(estimatedMAGI, isMarriedFilingJointly)
 
 	// Apply IRMAA surcharge
 	totalMonthlyPremium := basePremium.Add(irmaaSurcharge)
@@ -128,11 +115,10 @@ func (mc *MedicareCalculator) CalculateAnnualPartBCost(estimatedMAGI decimal.Dec
 	return annualCost
 }
 
-// calculateIRMAASurcharge calculates IRMAA surcharge based on MAGI
-func (mc *MedicareCalculator) calculateIRMAASurcharge(estimatedMAGI decimal.Decimal, isMarriedFilingJointly bool) decimal.Decimal {
-	var totalSurcharge decimal.Decimal
+// irmaaSurchargeForMAGI returns the single highest IRMAA tier surcharge for the given MAGI.
+func (mc *MedicareCalculator) irmaaSurchargeForMAGI(estimatedMAGI decimal.Decimal, isMarriedFilingJointly bool) decimal.Decimal {
+	var surcharge decimal.Decimal
 
-	// Apply IRMAA thresholds cumulatively based on filing status
 	for _, threshold := range mc.IRMAAThresholds {
 		var incomeThreshold decimal.Decimal
 		if isMarriedFilingJointly {
@@ -142,14 +128,13 @@ func (mc *MedicareCalculator) calculateIRMAASurcharge(estimatedMAGI decimal.Deci
 		}
 
 		if estimatedMAGI.GreaterThan(incomeThreshold) {
-			// Cumulatively add surcharges for each exceeded tier
-			totalSurcharge = totalSurcharge.Add(threshold.MonthlySurcharge)
+			surcharge = threshold.MonthlySurcharge
 		} else {
 			break
 		}
 	}
 
-	return totalSurcharge
+	return surcharge
 }
 
 // CalculateMedicarePremiumWithInflation calculates Medicare premium with inflation adjustment
@@ -190,16 +175,12 @@ func IsMedicareEligible(birthDate, atDate time.Time) bool {
 // using an externally provided estimatedMAGI (should be MAGI from two years prior per SSA rules)
 // and returns per-person annual premiums (A, B). projectionDate is used for eligibility and
 // to compute inflation-adjusted premium growth since 2025.
-func (ce *CalculationEngine) calculateMedicarePremium(personA, personB *domain.Employee, projectionDate time.Time, estimatedMAGI decimal.Decimal) (decimal.Decimal, decimal.Decimal) {
+func (ce *CalculationEngine) calculateMedicarePremium(personA, personB *domain.Employee, projectionDate time.Time, estimatedMAGI decimal.Decimal, isMarriedFilingJointly bool) (decimal.Decimal, decimal.Decimal) {
 
 	var personAPremium decimal.Decimal
 	var personBPremium decimal.Decimal
 
 	yearsFrom2025 := projectionDate.Year() - 2025
-
-	// Determine filing status for IRMAA calculation: assume married filing jointly for both
-	// when married (simplified); more detailed logic could use cashFlow.FilingStatusSingle.
-	isMarriedFilingJointly := true
 
 	// Note: estimatedMAGI is expected to already include taxable SS effects. If an external
 	// caller provides only partial MAGI, we could estimate here, but caller will pass full MAGI.

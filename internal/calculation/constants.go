@@ -1,7 +1,16 @@
 package calculation
 
+import "github.com/rpgo/retirement-calculator/internal/domain"
+
 // ProjectionBaseYear centralizes the starting calendar year for projections.
 const ProjectionBaseYear = 2025
+
+func projectionBaseYear(assumptions *domain.GlobalAssumptions) int {
+	if assumptions != nil && assumptions.ProjectionBaseYear != 0 {
+		return assumptions.ProjectionBaseYear
+	}
+	return ProjectionBaseYear
+}
 
 // Financial constants
 const (

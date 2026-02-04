@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/rpgo/retirement-calculator/internal/domain"
-	"github.com/rpgo/retirement-calculator/pkg/dateutil"
 	"github.com/shopspring/decimal"
 )
 
@@ -43,13 +42,8 @@ func TestSSProrate_FirstYearBirthdayMidYear(t *testing.T) {
 	// Year 0 is 2025; PersonA turns 62 on July 1, so SS should be prorated (less than full annual benefit)
 	row := proj[0]
 	full := CalculateSSBenefitForYear(&personA, rs.SSStartAge, 0, decimal.Zero)
-	// Compute expected prorated fraction: days after birthday / days in year
-	yearEnd := time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC)
-	birthdayThisYear := time.Date(2025, personA.BirthDate.Month(), personA.BirthDate.Day(), 0, 0, 0, 0, time.UTC)
-	daysAfter := yearEnd.Sub(birthdayThisYear).Hours() / 24.0
-	daysInYear := float64(dateutil.DaysInYear(2025))
-	frac := daysAfter / daysInYear
-	expected := full.Mul(decimal.NewFromFloat(frac))
+	// Expected monthly proration: retirement on Aug 1 -> benefits start Sep 1 (4 months in 2025)
+	expected := full.Div(decimal.NewFromInt(12)).Mul(decimal.NewFromInt(4))
 
 	// Allow small rounding tolerance
 	diff := row.SSBenefitPersonA.Sub(expected).Abs()

@@ -41,35 +41,35 @@ func TestMedicareCalculator_CalculatePartBPremium(t *testing.T) {
 			name:                   "Joint filer - second IRMAA tier",
 			magi:                   decimal.NewFromInt(280000),
 			isMarriedFilingJointly: true,
-			expectedPremium:        decimal.NewFromFloat(429.60), // 185 + 69.90 + 174.70
+			expectedPremium:        decimal.NewFromFloat(359.70), // 185 + 174.70
 			description:            "Joint filer in second IRMAA tier",
 		},
 		{
 			name:                   "Joint filer - third IRMAA tier",
 			magi:                   decimal.NewFromInt(350000),
 			isMarriedFilingJointly: true,
-			expectedPremium:        decimal.NewFromFloat(709.10), // 185 + 69.90 + 174.70 + 279.50
+			expectedPremium:        decimal.NewFromFloat(464.50), // 185 + 279.50
 			description:            "Joint filer in third IRMAA tier",
 		},
 		{
 			name:                   "Joint filer - fourth IRMAA tier",
 			magi:                   decimal.NewFromInt(400000),
 			isMarriedFilingJointly: true,
-			expectedPremium:        decimal.NewFromFloat(1093.40), // 185 + 69.90 + 174.70 + 279.50 + 384.30
+			expectedPremium:        decimal.NewFromFloat(569.30), // 185 + 384.30
 			description:            "Joint filer in fourth IRMAA tier",
 		},
 		{
 			name:                   "Joint filer - highest IRMAA tier",
 			magi:                   decimal.NewFromInt(800000),
 			isMarriedFilingJointly: true,
-			expectedPremium:        decimal.NewFromFloat(1582.50), // 185 + 69.90 + 174.70 + 279.50 + 384.30 + 489.10
+			expectedPremium:        decimal.NewFromFloat(674.10), // 185 + 489.10
 			description:            "Joint filer in highest IRMAA tier",
 		},
 		{
 			name:                   "Person A and Person B scenario - high income",
 			magi:                   decimal.NewFromInt(300000),
 			isMarriedFilingJointly: true,
-			expectedPremium:        decimal.NewFromFloat(429.60), // 185 + 69.90 + 174.70 (reaches 2nd tier)
+			expectedPremium:        decimal.NewFromFloat(359.70), // 185 + 174.70 (reaches 2nd tier)
 			description:            "Realistic scenario for Person A and Person B",
 		},
 	}
@@ -107,7 +107,7 @@ func TestMedicareCalculator_CalculateAnnualPartBCost(t *testing.T) {
 			name:                   "High income - multiple IRMAA tiers",
 			magi:                   decimal.NewFromInt(400000),
 			isMarriedFilingJointly: true,
-			expectedAnnualCost:     decimal.NewFromFloat(13120.80), // 1093.40 * 12
+			expectedAnnualCost:     decimal.NewFromFloat(6831.60), // 569.30 * 12
 		},
 	}
 

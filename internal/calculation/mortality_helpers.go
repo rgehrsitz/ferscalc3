@@ -8,11 +8,13 @@ import (
 )
 
 // deriveDeathYearIndexes returns 0-based projection year indexes for each death if within projection horizon.
-func deriveDeathYearIndexes(scenario *domain.Scenario, personA, personB *domain.Employee, projectionYears int) (personAIdx *int, personBIdx *int) {
+func deriveDeathYearIndexes(scenario *domain.Scenario, personA, personB *domain.Employee, projectionYears int, baseYear int) (personAIdx *int, personBIdx *int) {
 	if scenario == nil || scenario.Mortality == nil {
 		return nil, nil
 	}
-	baseYear := ProjectionBaseYear
+	if baseYear == 0 {
+		baseYear = ProjectionBaseYear
+	}
 	if scenario.Mortality.PersonA != nil {
 		if scenario.Mortality.PersonA.DeathDate != nil {
 			y := scenario.Mortality.PersonA.DeathDate.Year() - baseYear

@@ -3,11 +3,14 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -18,9 +21,11 @@ import (
 
 // Server represents the web server instance
 type Server struct {
-	apiService *api.Service
-	router     *mux.Router
-	port       string
+	apiService         *api.Service
+	router             *mux.Router
+	port               string
+	allowedCORSOrigins []string
+	maxBodyBytes       int64
 }
 
 // NewServer creates a new web server instance
@@ -29,9 +34,11 @@ func NewServer(port string) *Server {
 	router := mux.NewRouter()
 
 	server := &Server{
-		apiService: apiService,
-		router:     router,
-		port:       port,
+		apiService:         apiService,
+		router:             router,
+		port:               port,
+		allowedCORSOrigins: parseCORSOrigins(os.Getenv("FERSCALC_CORS_ORIGINS")),
+		maxBodyBytes:       parseMaxBodyBytes(os.Getenv("FERSCALC_MAX_BODY_BYTES")),
 	}
 
 	server.setupRoutes()
@@ -45,7 +52,11 @@ func (s *Server) setupMiddleware() {
 	// CORS middleware
 	s.router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+			origin := r.Header.Get("Origin")
+			if originAllowed(origin, s.allowedCORSOrigins) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+			}
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
@@ -81,18 +92,16 @@ func (s *Server) setupRoutes() {
 	apiV1.HandleFunc("/meta/employment-types", s.handleGetEmploymentTypes).Methods(http.MethodGet)
 	apiV1.HandleFunc("/meta/annuity-options", s.handleGetAnnuityOptions).Methods(http.MethodGet)
 
-	// Configuration endpoints
+	// Configuration endpoints - specific routes first
 	apiV1.HandleFunc("/configurations", s.handleGetConfigurations).Methods(http.MethodGet)
 	apiV1.HandleFunc("/configurations", s.handleCreateConfiguration).Methods(http.MethodPost)
+	apiV1.HandleFunc("/configurations/example", s.handleGetExampleConfiguration).Methods(http.MethodGet)
 	apiV1.HandleFunc("/configurations/{id}", s.handleGetConfiguration).Methods(http.MethodGet)
 	apiV1.HandleFunc("/configurations/{id}", s.handleUpdateConfiguration).Methods(http.MethodPut)
 	apiV1.HandleFunc("/configurations/{id}", s.handleDeleteConfiguration).Methods(http.MethodDelete)
 
 	// Scenario endpoints
 	apiV1.HandleFunc("/scenarios/run", s.handleRunScenario).Methods(http.MethodPost)
-
-	// Example configuration endpoint
-	apiV1.HandleFunc("/configurations/example", s.handleGetExampleConfiguration).Methods(http.MethodGet)
 }
 
 // Run starts the server and listens for requests
@@ -221,7 +230,13 @@ func (s *Server) handleGetExampleConfiguration(w http.ResponseWriter, r *http.Re
 // handleRunScenario runs a scenario calculation
 func (s *Server) handleRunScenario(w http.ResponseWriter, r *http.Request) {
 	var cfg domain.Configuration
+	r.Body = http.MaxBytesReader(w, r.Body, s.maxBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			sendErrorResponse(w, "Request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		sendErrorResponse(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
 		return
 	}
@@ -236,6 +251,49 @@ func (s *Server) handleRunScenario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.sendJSONResponse(w, results, http.StatusOK)
+}
+
+func parseCORSOrigins(raw string) []string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil
+	}
+	parts := strings.Split(trimmed, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		val := strings.TrimSpace(p)
+		if val != "" {
+			out = append(out, val)
+		}
+	}
+	return out
+}
+
+func parseMaxBodyBytes(raw string) int64 {
+	const defaultMax = int64(2 << 20) // 2 MB
+	if strings.TrimSpace(raw) == "" {
+		return defaultMax
+	}
+	parsed, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || parsed <= 0 {
+		return defaultMax
+	}
+	return parsed
+}
+
+func originAllowed(origin string, allowed []string) bool {
+	if origin == "" {
+		return false
+	}
+	for _, entry := range allowed {
+		if entry == "*" {
+			return true
+		}
+		if strings.EqualFold(origin, entry) {
+			return true
+		}
+	}
+	return false
 }
 
 // sendJSONResponse sends a JSON response

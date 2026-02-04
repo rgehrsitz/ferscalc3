@@ -52,16 +52,16 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 	// SSA 2-year lag for IRMAA determinations (use MAGI from Year-2).
 	magiBuffer := make([]decimal.Decimal, assumptions.ProjectionYears)
 
-	projectionStartYear := ProjectionBaseYear
+	projectionStartYear := projectionBaseYear(assumptions)
 
-	personADeathYearIndex, personBDeathYearIndex := deriveDeathYearIndexes(scenario, personA, personB, assumptions.ProjectionYears)
+	personADeathYearIndex, personBDeathYearIndex := deriveDeathYearIndexes(scenario, personA, personB, assumptions.ProjectionYears, projectionStartYear)
 
 	personAStrategy := ce.createTSPStrategy(&scenario.PersonA, personA.TSPBalanceTraditional.Add(personA.TSPBalanceRoth), assumptions.InflationRate)
 	personBStrategy := ce.createTSPStrategy(&scenario.PersonB, personB.TSPBalanceTraditional.Add(personB.TSPBalanceRoth), assumptions.InflationRate)
 
 	personStates := []personProjectionState{
-		newPersonProjectionState(personA, &scenario.PersonA, personAStrategy, personADeathYearIndex, scenarioMortalitySpec(scenario, true), "PersonA", ssProrationFractional),
-		newPersonProjectionState(personB, &scenario.PersonB, personBStrategy, personBDeathYearIndex, scenarioMortalitySpec(scenario, false), "PersonB", ssProrationMonthlyAfterRetirement),
+		newPersonProjectionState(personA, &scenario.PersonA, personAStrategy, personADeathYearIndex, scenarioMortalitySpec(scenario, true), "PersonA", ssProrationMonthlyAfterRetirement, projectionStartYear),
+		newPersonProjectionState(personB, &scenario.PersonB, personBStrategy, personBDeathYearIndex, scenarioMortalitySpec(scenario, false), "PersonB", ssProrationMonthlyAfterRetirement, projectionStartYear),
 	}
 
 	survivorSpendingFactor := decimal.NewFromFloat(1.0)
@@ -141,9 +141,10 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 		totalPension := yearResults[0].pension.Add(yearResults[1].pension)
 		totalTSP := yearResults[0].tspWithdrawal.Add(yearResults[1].tspWithdrawal)
 		totalSS := yearResults[0].socialSecurity.Add(yearResults[1].socialSecurity)
+		totalSalary := yearResults[0].salary.Add(yearResults[1].salary)
 		otherIncome := totalPension.Add(totalTSP)
 		taxableSS := ce.TaxCalc.CalculateSocialSecurityTaxation(totalSS, otherIncome)
-		estimatedMAGI := EstimateMAGI(totalPension, totalTSP, taxableSS, decimal.Zero)
+		estimatedMAGI := EstimateMAGI(totalPension, totalTSP, taxableSS, totalSalary)
 		magiBuffer[year] = estimatedMAGI
 
 		// Use MAGI from two years prior for IRMAA determinations per SSA rules.
@@ -159,7 +160,10 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 		// persons who turn 65 during the calendar year are counted
 		// for that year's Medicare premiums (pro-rated handling may
 		// be added later if desired).
-		personAPrem, personBPrem := ce.calculateMedicarePremium(personA, personB, yearEnd, magiForIRMAA)
+		filingStatus, _, _, _ := determineFilingStatusAndSeniors(scenario, personA, personB, year, yearResults[0].ageStart, yearResults[1].ageStart, projectionStartYear)
+		isMarriedFilingJointly := filingStatus != "single"
+
+		personAPrem, personBPrem := ce.calculateMedicarePremium(personA, personB, yearEnd, magiForIRMAA, isMarriedFilingJointly)
 		medicarePremium := personAPrem.Add(personBPrem)
 
 		taxInput := TaxCalculationInput{
@@ -167,6 +171,7 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 			PersonB:          personB,
 			Scenario:         scenario,
 			Year:             year,
+			BaseYear:         projectionStartYear,
 			IsRetired:        yearResults[0].isRetired && yearResults[1].isRetired,
 			Pensions:         [2]decimal.Decimal{yearResults[0].pension, yearResults[1].pension},
 			SurvivorPensions: [2]decimal.Decimal{yearResults[0].survivorPension, yearResults[1].survivorPension},
@@ -274,19 +279,55 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 	return projection
 }
 
-func newPersonProjectionState(employee *domain.Employee, scenario *domain.RetirementScenario, strategy TSPWithdrawalStrategy, deathYearIndex *int, mortalitySpec *domain.MortalitySpec, label string, ssMode ssRetirementProration) personProjectionState {
-	return personProjectionState{
+func newPersonProjectionState(employee *domain.Employee, scenario *domain.RetirementScenario, strategy TSPWithdrawalStrategy, deathYearIndex *int, mortalitySpec *domain.MortalitySpec, label string, ssMode ssRetirementProration, baseYear int) personProjectionState {
+	state := personProjectionState{
 		employee:          employee,
 		scenario:          scenario,
 		strategy:          strategy,
 		traditional:       employee.TSPBalanceTraditional,
 		roth:              employee.TSPBalanceRoth,
-		retirementYear:    scenario.RetirementDate.Year() - ProjectionBaseYear,
+		retirementYear:    scenario.RetirementDate.Year() - baseYear,
 		deathYearIndex:    deathYearIndex,
 		mortalitySpec:     mortalitySpec,
 		label:             label,
 		ssProration:       ssMode,
 		fixedIncomeConfig: resolveFixedRetirementIncome(employee, scenario),
+	}
+	applyAnnuityPremiumToBalances(&state)
+	return state
+}
+
+func applyAnnuityPremiumToBalances(state *personProjectionState) {
+	fa, ok := state.strategy.(*FixedAnnuity)
+	if !ok {
+		return
+	}
+
+	total := state.traditional.Add(state.roth)
+	if total.LessThanOrEqual(decimal.Zero) {
+		return
+	}
+
+	premium := fa.InitialPremium
+	if premium.LessThanOrEqual(decimal.Zero) {
+		return
+	}
+	if premium.GreaterThan(total) {
+		premium = total
+	}
+
+	// Remove annuitized principal proportionally from traditional/roth.
+	traditionalPremium := premium.Mul(state.traditional).Div(total)
+	rothPremium := premium.Sub(traditionalPremium)
+
+	state.traditional = state.traditional.Sub(traditionalPremium)
+	state.roth = state.roth.Sub(rothPremium)
+
+	if state.traditional.IsNegative() {
+		state.traditional = decimal.Zero
+	}
+	if state.roth.IsNegative() {
+		state.roth = decimal.Zero
 	}
 }
 
@@ -422,58 +463,40 @@ func calculateSocialSecurityForYear(state *personProjectionState, year int, proj
 
 	ss := CalculateSSBenefitForYear(state.employee, state.scenario.SSStartAge, year, cola)
 
+	startMonth := 0
 	if result.ageStart < state.scenario.SSStartAge && result.ageEnd >= state.scenario.SSStartAge {
-		birthdayThisYear := time.Date(projectionDate.Year(), state.employee.BirthDate.Month(), state.employee.BirthDate.Day(), 0, 0, 0, 0, time.UTC)
-		if !(year == state.retirementYear && state.scenario.RetirementDate.Before(birthdayThisYear)) {
-			daysAfter := yearEnd.Sub(birthdayThisYear).Hours() / 24.0
-			daysInYear := float64(dateutil.DaysInYear(projectionDate.Year()))
-			if daysInYear > 0 {
-				frac := daysAfter / daysInYear
-				if frac < 0 {
-					frac = 0
-				}
-				if frac > 1 {
-					frac = 1
-				}
-				ss = ss.Mul(decimal.NewFromFloat(frac))
-			}
-		}
+		startMonth = int(state.employee.BirthDate.Month()) + 1
 	}
 
 	if year == state.retirementYear && state.retirementYear >= 0 {
 		ageAtRetirement := state.employee.Age(state.scenario.RetirementDate)
 		if ageAtRetirement >= state.scenario.SSStartAge {
-			switch state.ssProration {
-			case ssProrationMonthlyAfterRetirement:
-				retirementDate := state.scenario.RetirementDate
-				ssStartDate := time.Date(retirementDate.Year(), retirementDate.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-				if ssStartDate.Year() > projectionDate.Year() {
-					return decimal.Zero
-				}
-				monthsOfBenefits := 12 - int(ssStartDate.Month()) + 1
-				if monthsOfBenefits < 0 {
-					monthsOfBenefits = 0
-				}
-				if monthsOfBenefits > 12 {
-					monthsOfBenefits = 12
-				}
-
-				// Apply monthly proration for partial year, regardless of birthday timing
-				if monthsOfBenefits > 0 && monthsOfBenefits < 12 {
-					monthly := ss.Div(decimal.NewFromInt(12))
-					ss = monthly.Mul(decimal.NewFromInt(int64(monthsOfBenefits)))
-				} else if monthsOfBenefits <= 0 {
-					ss = decimal.Zero
-				}
-				// If monthsOfBenefits == 12, keep full annual amount (ss unchanged)
-			default:
-				birthdayThisYear := time.Date(projectionDate.Year(), state.employee.BirthDate.Month(), state.employee.BirthDate.Day(), 0, 0, 0, 0, time.UTC)
-				if state.scenario.RetirementDate.Before(birthdayThisYear) {
-					ss = ss.Mul(decimal.NewFromInt(1).Sub(result.workFraction))
-				}
+			retirementStart := int(state.scenario.RetirementDate.Month()) + 1
+			if retirementStart > startMonth {
+				startMonth = retirementStart
 			}
 		} else {
 			return decimal.Zero
+		}
+	}
+
+	if startMonth > 0 {
+		if startMonth > 12 {
+			return decimal.Zero
+		}
+		monthsOfBenefits := 12 - startMonth + 1
+		if monthsOfBenefits < 0 {
+			monthsOfBenefits = 0
+		}
+		if monthsOfBenefits > 12 {
+			monthsOfBenefits = 12
+		}
+
+		if monthsOfBenefits > 0 && monthsOfBenefits < 12 {
+			monthly := ss.Div(decimal.NewFromInt(12))
+			ss = monthly.Mul(decimal.NewFromInt(int64(monthsOfBenefits)))
+		} else if monthsOfBenefits <= 0 {
+			ss = decimal.Zero
 		}
 	}
 
@@ -576,6 +599,22 @@ func (ce *CalculationEngine) calculateTSPWithdrawalForPerson(state *personProjec
 	currentBalance := state.traditional.Add(state.roth)
 
 	switch state.scenario.TSPWithdrawalStrategy {
+	case "fixed_annuity":
+		annuityPayment := decimal.Zero
+		if fa, ok := state.strategy.(*FixedAnnuity); ok {
+			annuityPayment = fa.CalculateWithdrawal(decimal.Zero, yearsIntoRetirement, decimal.Zero, result.ageStart, false, decimal.Zero)
+		}
+
+		withdrawalFromBalance := result.rmd
+		if withdrawalFromBalance.LessThan(decimal.Zero) {
+			withdrawalFromBalance = decimal.Zero
+		}
+
+		totalWithdrawal := annuityPayment.Add(withdrawalFromBalance)
+		if year == state.retirementYear && state.retirementYear >= 0 {
+			totalWithdrawal = totalWithdrawal.Mul(decimal.NewFromInt(1).Sub(result.workFraction))
+		}
+		return totalWithdrawal
 	case "4_percent_rule":
 		withdrawal := state.strategy.CalculateWithdrawal(
 			currentBalance,
@@ -608,13 +647,22 @@ func (ce *CalculationEngine) calculateTSPWithdrawalForPerson(state *personProjec
 
 func (ce *CalculationEngine) updateTSPBalancesForPerson(state *personProjectionState, projectionDate time.Time, assumptions *domain.GlobalAssumptions, result *personAnnualResult) {
 	if result.isRetired {
+		withdrawalFromBalance := result.tspWithdrawal
+		if fa, ok := state.strategy.(*FixedAnnuity); ok {
+			annuityPayment := fa.CalculateWithdrawal(decimal.Zero, projectionDate.Year()-state.scenario.RetirementDate.Year()+1, decimal.Zero, result.ageStart, false, decimal.Zero)
+			withdrawalFromBalance = withdrawalFromBalance.Sub(annuityPayment)
+			if withdrawalFromBalance.IsNegative() {
+				withdrawalFromBalance = decimal.Zero
+			}
+		}
+
 		if state.employee.TSPLifecycleFund != nil || state.employee.TSPAllocation != nil {
 			// OPTIMIZED WITHDRAWAL STRATEGY:
 			// 1. Take Required Minimum Distribution (RMD) from Traditional TSP first (IRS requirement)
 			// 2. Take any additional withdrawals from Roth TSP first (tax-free) for tax efficiency
 			// 3. Only take from Traditional TSP beyond RMD if Roth is depleted
 
-			totalWithdrawal := result.tspWithdrawal
+			totalWithdrawal := withdrawalFromBalance
 			rmdAmount := result.rmd
 
 			var traditionalWithdrawal, rothWithdrawal decimal.Decimal
@@ -655,7 +703,7 @@ func (ce *CalculationEngine) updateTSPBalancesForPerson(state *personProjectionS
 			state.traditional = state.traditional.Mul(growthFactor)
 			state.roth = state.roth.Mul(growthFactor)
 		} else {
-			state.traditional, state.roth = ce.updateTSPBalances(state.traditional, state.roth, result.tspWithdrawal, assumptions.TSPReturnPostRetirement)
+			state.traditional, state.roth = ce.updateTSPBalances(state.traditional, state.roth, withdrawalFromBalance, assumptions.TSPReturnPostRetirement)
 		}
 		return
 	}

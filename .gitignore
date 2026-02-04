@@ -59,3 +59,4 @@ test_full*.log
 test_output.txt
 
 fers-calc
+web-server

@@ -316,6 +316,7 @@ type GlobalAssumptions struct {
 	COLAGeneralRate             decimal.Decimal `yaml:"cola_general_rate" json:"cola_general_rate"`
 	FederalBracketInflationRate decimal.Decimal `yaml:"federal_bracket_inflation_rate" json:"federal_bracket_inflation_rate"`
 	ProjectionYears             int             `yaml:"projection_years" json:"projection_years"`
+	ProjectionBaseYear          int             `yaml:"projection_base_year" json:"projection_base_year"`
 	CurrentLocation             Location        `yaml:"current_location" json:"current_location"`
 
 	// Monte Carlo Configuration
