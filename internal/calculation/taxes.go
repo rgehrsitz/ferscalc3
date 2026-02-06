@@ -47,16 +47,16 @@ type FederalTaxCalculator struct {
 func NewFederalTaxCalculator2025() *FederalTaxCalculator {
 	return &FederalTaxCalculator{
 		Year:              2025,
-		StandardDeduction: decimal.NewFromInt(30000), // MFJ 2025 estimated
-		AdditionalStdDed:  decimal.NewFromInt(1550),  // Per person 65+
+		StandardDeduction: decimal.NewFromInt(30000), // MFJ 2025 (IRS Rev. Proc. 2024-40)
+		AdditionalStdDed:  decimal.NewFromInt(1600),  // Per person 65+ (2025)
 		Brackets: []TaxBracket{
-			{decimal.Zero, decimal.NewFromInt(23200), decimal.NewFromFloat(0.10)},
-			{decimal.NewFromInt(23200), decimal.NewFromInt(94300), decimal.NewFromFloat(0.12)},
-			{decimal.NewFromInt(94300), decimal.NewFromInt(201050), decimal.NewFromFloat(0.22)},
-			{decimal.NewFromInt(201050), decimal.NewFromInt(383900), decimal.NewFromFloat(0.24)},
-			{decimal.NewFromInt(383900), decimal.NewFromInt(487450), decimal.NewFromFloat(0.32)},
-			{decimal.NewFromInt(487450), decimal.NewFromInt(731200), decimal.NewFromFloat(0.35)},
-			{decimal.NewFromInt(731200), decimal.NewFromInt(999999999), decimal.NewFromFloat(0.37)},
+			{decimal.Zero, decimal.NewFromInt(23850), decimal.NewFromFloat(0.10)},
+			{decimal.NewFromInt(23850), decimal.NewFromInt(96950), decimal.NewFromFloat(0.12)},
+			{decimal.NewFromInt(96950), decimal.NewFromInt(206700), decimal.NewFromFloat(0.22)},
+			{decimal.NewFromInt(206700), decimal.NewFromInt(394600), decimal.NewFromFloat(0.24)},
+			{decimal.NewFromInt(394600), decimal.NewFromInt(501050), decimal.NewFromFloat(0.32)},
+			{decimal.NewFromInt(501050), decimal.NewFromInt(751600), decimal.NewFromFloat(0.35)},
+			{decimal.NewFromInt(751600), decimal.NewFromInt(999999999), decimal.NewFromFloat(0.37)},
 		},
 	}
 }
@@ -67,15 +67,15 @@ func NewFederalTaxCalculator(config domain.FederalTaxConfig) *FederalTaxCalculat
 	for _, b := range config.TaxBrackets2025 {
 		bracketsMFJ = append(bracketsMFJ, TaxBracket{Min: b.Min, Max: b.Max, Rate: b.Rate})
 	}
-	if len(bracketsMFJ) == 0 { // fallback defaults
+	if len(bracketsMFJ) == 0 { // fallback defaults (2025 per IRS Rev. Proc. 2024-40)
 		bracketsMFJ = []TaxBracket{
-			{decimal.Zero, decimal.NewFromInt(23200), decimal.NewFromFloat(0.10)},
-			{decimal.NewFromInt(23200), decimal.NewFromInt(94300), decimal.NewFromFloat(0.12)},
-			{decimal.NewFromInt(94300), decimal.NewFromInt(201050), decimal.NewFromFloat(0.22)},
-			{decimal.NewFromInt(201050), decimal.NewFromInt(383900), decimal.NewFromFloat(0.24)},
-			{decimal.NewFromInt(383900), decimal.NewFromInt(487450), decimal.NewFromFloat(0.32)},
-			{decimal.NewFromInt(487450), decimal.NewFromInt(731200), decimal.NewFromFloat(0.35)},
-			{decimal.NewFromInt(731200), decimal.NewFromInt(999999999), decimal.NewFromFloat(0.37)},
+			{decimal.Zero, decimal.NewFromInt(23850), decimal.NewFromFloat(0.10)},
+			{decimal.NewFromInt(23850), decimal.NewFromInt(96950), decimal.NewFromFloat(0.12)},
+			{decimal.NewFromInt(96950), decimal.NewFromInt(206700), decimal.NewFromFloat(0.22)},
+			{decimal.NewFromInt(206700), decimal.NewFromInt(394600), decimal.NewFromFloat(0.24)},
+			{decimal.NewFromInt(394600), decimal.NewFromInt(501050), decimal.NewFromFloat(0.32)},
+			{decimal.NewFromInt(501050), decimal.NewFromInt(751600), decimal.NewFromFloat(0.35)},
+			{decimal.NewFromInt(751600), decimal.NewFromInt(999999999), decimal.NewFromFloat(0.37)},
 		}
 	}
 	var bracketsSingle []TaxBracket

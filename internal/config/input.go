@@ -269,6 +269,7 @@ func isScenarioEmpty(scenario *domain.RetirementScenario) bool {
 		scenario.TSPWithdrawalRate == nil &&
 		scenario.TSPWithdrawalCeiling == nil &&
 		scenario.TSPWithdrawalFloor == nil &&
+		scenario.TSPWithdrawalOrdering == "" &&
 		scenario.FixedRetirementIncome == nil &&
 		scenario.AnnuityPremiumPercent == nil &&
 		scenario.AnnuityPayoutRate == nil &&
@@ -291,8 +292,9 @@ func (ip *InputParser) validateRetirementScenario(_ string, scenario *domain.Ret
 	if scenario.TSPWithdrawalStrategy != "4_percent_rule" &&
 		scenario.TSPWithdrawalStrategy != "need_based" &&
 		scenario.TSPWithdrawalStrategy != "variable_percentage" &&
-		scenario.TSPWithdrawalStrategy != "fixed_annuity" {
-		return fmt.Errorf("TSP withdrawal strategy must be '4_percent_rule', 'need_based', 'variable_percentage', or 'fixed_annuity'")
+		scenario.TSPWithdrawalStrategy != "fixed_annuity" &&
+		scenario.TSPWithdrawalStrategy != "floor_ceiling" {
+		return fmt.Errorf("TSP withdrawal strategy must be '4_percent_rule', 'need_based', 'variable_percentage', 'fixed_annuity', or 'floor_ceiling'")
 	}
 	if scenario.TSPWithdrawalStrategy == "need_based" && scenario.TSPWithdrawalTargetMonthly == nil {
 		return fmt.Errorf("TSP withdrawal target monthly is required for need_based strategy")
@@ -324,11 +326,26 @@ func (ip *InputParser) validateRetirementScenario(_ string, scenario *domain.Ret
 			}
 		}
 	}
+	if scenario.TSPWithdrawalStrategy == "floor_ceiling" {
+		if scenario.TSPWithdrawalRate == nil {
+			return fmt.Errorf("TSP withdrawal rate is required for floor_ceiling strategy")
+		}
+		if scenario.TSPWithdrawalFloor != nil && scenario.TSPWithdrawalCeiling != nil {
+			if scenario.TSPWithdrawalFloor.GreaterThanOrEqual(*scenario.TSPWithdrawalCeiling) {
+				return fmt.Errorf("TSP withdrawal floor must be less than ceiling")
+			}
+		}
+	}
 	if scenario.TSPWithdrawalTargetMonthly != nil && scenario.TSPWithdrawalTargetMonthly.LessThanOrEqual(decimal.Zero) {
 		return fmt.Errorf("TSP withdrawal target monthly must be positive")
 	}
 	if scenario.TSPWithdrawalRate != nil && (scenario.TSPWithdrawalRate.LessThan(decimal.Zero) || scenario.TSPWithdrawalRate.GreaterThan(decimal.NewFromFloat(0.2))) {
 		return fmt.Errorf("TSP withdrawal rate must be between 0 and 20%%")
+	}
+	if scenario.TSPWithdrawalOrdering != "" &&
+		scenario.TSPWithdrawalOrdering != "traditional_first" &&
+		scenario.TSPWithdrawalOrdering != "roth_first" {
+		return fmt.Errorf("TSP withdrawal ordering must be 'traditional_first' or 'roth_first'")
 	}
 
 	return nil

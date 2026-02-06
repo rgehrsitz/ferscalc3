@@ -156,7 +156,9 @@ Reports are output to stdout by default. Redirect to files as needed (e.g., `> r
 
 ## Configuration File Format
 
-The calculator uses YAML configuration files. Here's an example structure:
+The calculator uses YAML or JSON configuration files. For a **complete field-by-field reference** with valid ranges, defaults, and examples for every option, see **[docs/configuration_reference.md](docs/configuration_reference.md)**.
+
+Here's a quick-start example:
 
 ```yaml
 personal_details:
@@ -292,11 +294,14 @@ federal_rules:
 - **Multipliers**:
   - Standard: 1.0% per year of service
   - Enhanced: 1.1% per year if retiring at age 62+ with 20+ years service
-- **COLA Rules**:
-  - No COLA until age 62
+- **Sick Leave Credit**: Unused sick leave converts to additional service years at the OPM standard rate of 2,087 hours = 1 year (5 CFR 630.301)
+- **COLA Rules** (per 5 CFR 842.403):
+  - **Unreduced annuitants** (MRA+30, age 60/20, age 62/5): COLA applies immediately
+  - **Reduced annuitants** (MRA+10 early retirement): COLA deferred until age 62
   - CPI ≤ 2%: Full CPI increase
   - CPI 2-3%: Capped at 2%
   - CPI > 3%: CPI minus 1%
+  - COLA can never be negative (pension unchanged in deflationary years)
 
 ### TSP Configuration
 
@@ -335,8 +340,11 @@ tsp_allocation:
 
 - **4% Rule**: Initial 4% withdrawal, adjusted for inflation annually
 - **Need-Based**: Withdraw based on target monthly income
-- **RMD Compliance**: Automatic Required Minimum Distribution calculations
-- **Traditional vs Roth**: Optimized withdrawal order (Roth first, then Traditional)
+- **Variable Percentage**: Fixed percentage of current balance each year
+- **Floor/Ceiling**: Percentage-based with minimum and maximum guardrails
+- **Fixed Annuity**: Simulates purchasing a commercial annuity at retirement
+- **RMD Compliance**: Automatic Required Minimum Distributions from Traditional TSP (IRS requirement)
+- **Withdrawal Ordering**: Configurable Traditional-first (default) or Roth-first ordering. See [Configuration Reference](docs/configuration_reference.md#tsp-withdrawal-ordering).
 
 ### Monte Carlo Analysis
 
@@ -498,10 +506,11 @@ For issues, questions, or contributions, please use the GitHub issue tracker or 
 - [x] Monte Carlo simulation for TSP returns
 - [x] Historical data integration
 - [x] Interactive HTML reports with charts and visualizations
+- [x] Enhanced withdrawal strategies (floor-ceiling guardrails, fixed annuity)
+- [x] Medicare Part B premium and IRMAA calculations
+- [x] Mortality modeling and survivor benefit projections
+- [x] Configurable TSP withdrawal ordering (Traditional-first / Roth-first)
 - [ ] TSP lifecycle fund support for Monte Carlo simulations
-- [ ] Enhanced withdrawal strategies (floor-ceiling, bond tent)
 - [ ] Web interface
 - [ ] Additional state tax support
-- [ ] Medicare Part B premium calculations
-- [ ] Survivor benefit optimization
 - [ ] Export to financial planning software

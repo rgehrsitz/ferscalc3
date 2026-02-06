@@ -61,6 +61,7 @@ type RetirementScenario struct {
 	TSPWithdrawalRate          *decimal.Decimal       `yaml:"tsp_withdrawal_rate,omitempty" json:"tsp_withdrawal_rate,omitempty"`
 	TSPWithdrawalCeiling       *decimal.Decimal       `yaml:"tsp_withdrawal_ceiling,omitempty" json:"tsp_withdrawal_ceiling,omitempty"`
 	TSPWithdrawalFloor         *decimal.Decimal       `yaml:"tsp_withdrawal_floor,omitempty" json:"tsp_withdrawal_floor,omitempty"`
+	TSPWithdrawalOrdering      string                 `yaml:"tsp_withdrawal_ordering,omitempty" json:"tsp_withdrawal_ordering,omitempty"` // "traditional_first" (default) or "roth_first"
 	FixedRetirementIncome      *FixedRetirementIncome `yaml:"fixed_retirement_income,omitempty" json:"fixed_retirement_income,omitempty"`
 
 	// Annuity-specific configuration (used when tsp_withdrawal_strategy is "fixed_annuity")
@@ -83,6 +84,7 @@ func (rs *RetirementScenario) UnmarshalYAML(value *yaml.Node) error {
 		TSPWithdrawalRate          *string                `yaml:"tsp_withdrawal_rate,omitempty"`
 		TSPWithdrawalCeiling       *string                `yaml:"tsp_withdrawal_ceiling,omitempty"`
 		TSPWithdrawalFloor         *string                `yaml:"tsp_withdrawal_floor,omitempty"`
+		TSPWithdrawalOrdering      string                 `yaml:"tsp_withdrawal_ordering,omitempty"`
 		FixedRetirementIncome      *FixedRetirementIncome `yaml:"fixed_retirement_income,omitempty"`
 		AnnuityPremiumPercent      *string                `yaml:"annuity_premium_percent,omitempty"`
 		AnnuityPayoutRate          *string                `yaml:"annuity_payout_rate,omitempty"`
@@ -101,6 +103,7 @@ func (rs *RetirementScenario) UnmarshalYAML(value *yaml.Node) error {
 	rs.RetirementDate = aux.RetirementDate
 	rs.SSStartAge = aux.SSStartAge
 	rs.TSPWithdrawalStrategy = aux.TSPWithdrawalStrategy
+	rs.TSPWithdrawalOrdering = aux.TSPWithdrawalOrdering
 	rs.FixedRetirementIncome = aux.FixedRetirementIncome
 	rs.AnnuityGuaranteedYears = aux.AnnuityGuaranteedYears
 
@@ -184,6 +187,7 @@ func (rs *RetirementScenario) UnmarshalJSON(data []byte) error {
 		TSPWithdrawalRate          json.RawMessage        `json:"tsp_withdrawal_rate,omitempty"`
 		TSPWithdrawalCeiling       json.RawMessage        `json:"tsp_withdrawal_ceiling,omitempty"`
 		TSPWithdrawalFloor         json.RawMessage        `json:"tsp_withdrawal_floor,omitempty"`
+		TSPWithdrawalOrdering      string                 `json:"tsp_withdrawal_ordering,omitempty"`
 		FixedRetirementIncome      *FixedRetirementIncome `json:"fixed_retirement_income,omitempty"`
 		AnnuityPremiumPercent      json.RawMessage        `json:"annuity_premium_percent,omitempty"`
 		AnnuityPayoutRate          json.RawMessage        `json:"annuity_payout_rate,omitempty"`
@@ -201,6 +205,7 @@ func (rs *RetirementScenario) UnmarshalJSON(data []byte) error {
 	rs.RetirementDate = aux.RetirementDate
 	rs.SSStartAge = aux.SSStartAge
 	rs.TSPWithdrawalStrategy = aux.TSPWithdrawalStrategy
+	rs.TSPWithdrawalOrdering = aux.TSPWithdrawalOrdering
 	rs.FixedRetirementIncome = aux.FixedRetirementIncome
 	rs.AnnuityGuaranteedYears = aux.AnnuityGuaranteedYears
 
@@ -340,7 +345,7 @@ func (ga *GlobalAssumptions) GenerateAssumptions() []string {
 		fmt.Sprintf("FEHB premium inflation: %.1f%% annually", ga.FEHBPremiumInflation.Mul(decimal.NewFromInt(100)).InexactFloat64()),
 		fmt.Sprintf("TSP growth pre-retirement: %.1f%% annually", ga.TSPReturnPreRetirement.Mul(decimal.NewFromInt(100)).InexactFloat64()),
 		fmt.Sprintf("TSP growth post-retirement: %.1f%% annually", ga.TSPReturnPostRetirement.Mul(decimal.NewFromInt(100)).InexactFloat64()),
-		"Social Security wage base indexing: ~5% annually (2025 est: $168,600)",
+		"Social Security wage base indexing: ~5% annually (2025: $176,100)",
 		fmt.Sprintf("Tax brackets & deductions: indexed independently at %.1f%% annually from 2025 baseline", bracketRate.Mul(decimal.NewFromInt(100)).InexactFloat64()),
 	}
 }
@@ -579,10 +584,12 @@ type Configuration struct {
 	Scenarios         []Scenario          `yaml:"scenarios" json:"scenarios"`
 }
 
-// Age calculates the age of the employee at a given date
+// Age calculates the age of the employee at a given date.
+// Uses month/day comparison (not YearDay) for correct leap-year handling.
 func (e *Employee) Age(atDate time.Time) int {
 	age := atDate.Year() - e.BirthDate.Year()
-	if atDate.YearDay() < e.BirthDate.YearDay() {
+	if atDate.Month() < e.BirthDate.Month() ||
+		(atDate.Month() == e.BirthDate.Month() && atDate.Day() < e.BirthDate.Day()) {
 		age--
 	}
 	return age
@@ -600,11 +607,10 @@ func (e *Employee) CreditableService(atDate time.Time) decimal.Decimal {
 func (e *Employee) YearsOfService(atDate time.Time) decimal.Decimal {
 	years := e.CreditableService(atDate)
 	// Add sick leave credit if available
-	// FERS Rule: Unused sick leave at retirement counts toward service computation
-	// 1 day of sick leave = 1 day of service credit (8 hours = 1 day)
+	// FERS Rule: Unused sick leave at retirement counts toward service computation.
+	// OPM standard: 2,087 hours = 1 federal work year (per 5 CFR § 630.301).
 	if e.SickLeaveHours.GreaterThan(decimal.Zero) {
-		sickLeaveDays := e.SickLeaveHours.Div(decimal.NewFromInt(8))
-		sickLeaveYears := sickLeaveDays.Div(decimal.NewFromFloat(365.25))
+		sickLeaveYears := e.SickLeaveHours.Div(decimal.NewFromInt(2087))
 		years = years.Add(sickLeaveYears)
 	}
 

@@ -122,13 +122,13 @@ func determineMultiplier(retirementAge int, serviceYears decimal.Decimal) decima
 // ApplyFERSPensionCOLA applies the FERS COLA rules
 //
 // Per OPM regulations (5 CFR § 842.403-842.404):
-//   - COLA is NOT applied until the annuitant reaches age 62
-//   - The first COLA is payable in December of the year following the year the retiree turns 62,
-//     OR December following the first year of retirement, whichever is later
+//   - For REDUCED annuitants (MRA+10 early retirement): COLA is NOT applied until age 62
+//   - For UNREDUCED annuitants (MRA+30, age 60+/20, age 62+/5, or special provisions):
+//     COLA is applied starting the first December after at least one full year of retirement
 //
-// This implementation applies COLA starting in the calendar year AFTER turning 62.
-// For retirees who turn 62 mid-year, they receive NO COLA for that partial year, then
-// full COLA adjustments beginning the following year. This aligns with OPM guidance.
+// The isReducedAnnuity parameter controls which rule applies:
+//   - true  → COLA deferred until age 62 (MRA+10 reduced annuity)
+//   - false → COLA applied regardless of age (unreduced immediate annuity, survivor annuity)
 //
 // Annual COLA Rules (when eligible):
 // - If CPI change (inflation) is 2% or less, COLA is the actual CPI change
@@ -136,9 +136,15 @@ func determineMultiplier(retirementAge int, serviceYears decimal.Decimal) decima
 // - If CPI change is greater than 3%, COLA is CPI change minus 1%
 //
 // Reference: OPM CSRS and FERS Handbook, Chapter 81
-func ApplyFERSPensionCOLA(currentPension decimal.Decimal, inflationRate decimal.Decimal, annuitantAge int) decimal.Decimal {
-	if annuitantAge < 62 {
-		return currentPension // No COLA until age 62
+func ApplyFERSPensionCOLA(currentPension decimal.Decimal, inflationRate decimal.Decimal, annuitantAge int, isReducedAnnuity bool) decimal.Decimal {
+	if isReducedAnnuity && annuitantAge < 62 {
+		return currentPension // No COLA until age 62 for reduced annuitants
+	}
+
+	// FERS COLA can never be negative per OPM rules (5 CFR § 842.403).
+	// If CPI change is zero or negative, pension remains unchanged.
+	if inflationRate.LessThanOrEqual(decimal.Zero) {
+		return currentPension
 	}
 
 	var colaRate decimal.Decimal
@@ -178,6 +184,9 @@ func ProjectFERSPension(employee *domain.Employee, retirementDate time.Time, pro
 	initialCalculation := CalculateFERSPension(employee, retirementDate)
 	initialPension := initialCalculation.ReducedPension
 
+	// Determine if this is a reduced annuity (MRA+10) — affects COLA eligibility before age 62
+	isReduced := CalculatePensionReduction(employee, retirementDate).GreaterThan(decimal.Zero)
+
 	projections := make([]decimal.Decimal, projectionYears)
 
 	// First year is the base pension without COLA
@@ -190,7 +199,7 @@ func ProjectFERSPension(employee *domain.Employee, retirementDate time.Time, pro
 		age := employee.Age(projectionDate)
 
 		// Apply COLA for this year
-		currentPension = ApplyFERSPensionCOLA(currentPension, inflationRate, age)
+		currentPension = ApplyFERSPensionCOLA(currentPension, inflationRate, age, isReduced)
 		projections[year] = currentPension
 	}
 
@@ -211,6 +220,9 @@ func CalculatePensionForYear(employee *domain.Employee, retirementDate time.Time
 		return initialPension
 	}
 
+	// Determine if this is a reduced annuity (MRA+10) — affects COLA eligibility before age 62
+	isReduced := CalculatePensionReduction(employee, retirementDate).GreaterThan(decimal.Zero)
+
 	// Apply COLA for each year up to the target year
 	currentPension := initialPension
 
@@ -219,7 +231,7 @@ func CalculatePensionForYear(employee *domain.Employee, retirementDate time.Time
 		projectionDate := retirementDate.AddDate(y, 0, 0)
 		age := employee.Age(projectionDate)
 
-		currentPension = ApplyFERSPensionCOLA(currentPension, inflationRate, age)
+		currentPension = ApplyFERSPensionCOLA(currentPension, inflationRate, age, isReduced)
 	}
 
 	return currentPension

@@ -135,6 +135,15 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 			ce.updateTSPBalancesForPerson(state, projectionDate, assumptions, result)
 		}
 
+		// Apply survivor spending factor BEFORE tax calculation so that taxes
+		// are computed on the reduced income, not the full pre-death income.
+		if (personStates[0].deceased || personStates[1].deceased) && survivorSpendingFactor.LessThan(decimal.NewFromFloat(0.999)) {
+			for idx := range yearResults {
+				yearResults[idx].tspWithdrawal = yearResults[idx].tspWithdrawal.Mul(survivorSpendingFactor)
+				yearResults[idx].pension = yearResults[idx].pension.Mul(survivorSpendingFactor)
+			}
+		}
+
 		fehbPremium := CalculateFEHBPremium(personA, year, assumptions.FEHBPremiumInflation, federalRules.FEHBConfig)
 
 		// Estimate MAGI for this projection year and store it in the buffer.
@@ -262,13 +271,6 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 
 		cashFlow.SurvivorPensionPersonA = yearResults[0].survivorPension
 		cashFlow.SurvivorPensionPersonB = yearResults[1].survivorPension
-
-		if (personStates[0].deceased || personStates[1].deceased) && survivorSpendingFactor.LessThan(decimal.NewFromFloat(0.999)) {
-			cashFlow.TSPWithdrawalPersonA = cashFlow.TSPWithdrawalPersonA.Mul(survivorSpendingFactor)
-			cashFlow.TSPWithdrawalPersonB = cashFlow.TSPWithdrawalPersonB.Mul(survivorSpendingFactor)
-			cashFlow.PensionPersonA = cashFlow.PensionPersonA.Mul(survivorSpendingFactor)
-			cashFlow.PensionPersonB = cashFlow.PensionPersonB.Mul(survivorSpendingFactor)
-		}
 
 		cashFlow.TotalGrossIncome = cashFlow.CalculateTotalIncome()
 		cashFlow.CalculateNetIncome()
@@ -548,7 +550,7 @@ func applySurvivorPensions(year int, assumptions *domain.GlobalAssumptions, stat
 		for cy := 1; cy <= yearsSinceRet; cy++ {
 			projDate := decedent.scenario.RetirementDate.AddDate(cy, 0, 0)
 			ageAt := decedent.employee.Age(projDate)
-			currentSurvivor = ApplyFERSPensionCOLA(currentSurvivor, assumptions.COLAGeneralRate, ageAt)
+			currentSurvivor = ApplyFERSPensionCOLA(currentSurvivor, assumptions.COLAGeneralRate, ageAt, false)
 		}
 
 		var survivorAmount decimal.Decimal
@@ -657,10 +659,11 @@ func (ce *CalculationEngine) updateTSPBalancesForPerson(state *personProjectionS
 		}
 
 		if state.employee.TSPLifecycleFund != nil || state.employee.TSPAllocation != nil {
-			// OPTIMIZED WITHDRAWAL STRATEGY:
+			// CONFIGURABLE WITHDRAWAL STRATEGY:
 			// 1. Take Required Minimum Distribution (RMD) from Traditional TSP first (IRS requirement)
-			// 2. Take any additional withdrawals from Roth TSP first (tax-free) for tax efficiency
-			// 3. Only take from Traditional TSP beyond RMD if Roth is depleted
+			// 2. Additional withdrawals based on ordering preference:
+			//    - "traditional_first" (default): deplete taxable Traditional before tax-free Roth
+			//    - "roth_first": preserve Traditional for potential Roth conversions
 
 			totalWithdrawal := withdrawalFromBalance
 			rmdAmount := result.rmd
@@ -673,14 +676,29 @@ func (ce *CalculationEngine) updateTSPBalancesForPerson(state *personProjectionS
 				totalWithdrawal = totalWithdrawal.Sub(traditionalWithdrawal)
 			}
 
-			// Step 2: Additional withdrawals come from Roth first (tax optimization)
+			// Step 2: Additional withdrawals based on configured ordering
+			rothFirst := state.scenario != nil && state.scenario.TSPWithdrawalOrdering == "roth_first"
 			if totalWithdrawal.GreaterThan(decimal.Zero) {
-				if totalWithdrawal.LessThanOrEqual(state.roth) {
-					rothWithdrawal = totalWithdrawal
+				if rothFirst {
+					// Roth first: preserve Traditional for potential Roth conversions
+					if totalWithdrawal.LessThanOrEqual(state.roth) {
+						rothWithdrawal = totalWithdrawal
+					} else {
+						rothWithdrawal = state.roth
+						traditionalWithdrawal = traditionalWithdrawal.Add(totalWithdrawal.Sub(state.roth))
+					}
 				} else {
-					// Roth depleted - take remaining from Traditional
-					rothWithdrawal = state.roth
-					traditionalWithdrawal = traditionalWithdrawal.Add(totalWithdrawal.Sub(state.roth))
+					// Traditional first (default): deplete taxable Traditional before tax-free Roth
+					availableTraditional := state.traditional.Sub(traditionalWithdrawal)
+					if availableTraditional.IsNegative() {
+						availableTraditional = decimal.Zero
+					}
+					if totalWithdrawal.LessThanOrEqual(availableTraditional) {
+						traditionalWithdrawal = traditionalWithdrawal.Add(totalWithdrawal)
+					} else {
+						traditionalWithdrawal = traditionalWithdrawal.Add(availableTraditional)
+						rothWithdrawal = totalWithdrawal.Sub(availableTraditional)
+					}
 				}
 			}
 

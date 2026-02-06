@@ -84,7 +84,7 @@ func TestSurvivorPensionFlow(t *testing.T) {
 			for cy := 1; cy <= yearsSinceRet; cy++ {
 				projDate := retDate.AddDate(cy, 0, 0)
 				ageAt := personA.Age(projDate)
-				curr = ApplyFERSPensionCOLA(curr, assumptions.InflationRate, ageAt)
+				curr = ApplyFERSPensionCOLA(curr, assumptions.InflationRate, ageAt, false)
 			}
 			// Compare with tolerance 1 dollar
 			diff := cf.SurvivorPensionPersonB.Sub(curr).Abs()

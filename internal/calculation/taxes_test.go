@@ -41,7 +41,7 @@ func TestFederalTaxCalculation(t *testing.T) {
 			grossIncome: decimal.NewFromInt(100000),
 			age1:        45,
 			age2:        43,
-			expectedTax: decimal.NewFromFloat(7936), // (100000-30000): 23200*0.10 + 46800*0.12 = 7936
+			expectedTax: decimal.NewFromFloat(7923), // (100000-30000)=70000: 23850*0.10 + 46150*0.12 = 7923
 			description: "Income spanning multiple tax brackets",
 		},
 		{
@@ -49,7 +49,7 @@ func TestFederalTaxCalculation(t *testing.T) {
 			grossIncome: decimal.NewFromInt(300000),
 			age1:        45,
 			age2:        43,
-			expectedTax: decimal.NewFromFloat(50885), // 270000 taxable across all brackets
+			expectedTax: decimal.NewFromFloat(50494), // 270000 taxable: 23850*0.10+73100*0.12+109750*0.22+63300*0.24
 			description: "High income in 24% bracket",
 		},
 		{
@@ -57,7 +57,7 @@ func TestFederalTaxCalculation(t *testing.T) {
 			grossIncome: decimal.NewFromInt(80000),
 			age1:        66,                         // Over 65
 			age2:        64,                         // Under 65
-			expectedTax: decimal.NewFromFloat(5350), // (80000-31550): 23200*0.10 + 25250*0.12 = 5350
+			expectedTax: decimal.NewFromFloat(5331), // (80000-31600)=48400: 23850*0.10 + 24550*0.12 = 5331
 			description: "Additional standard deduction for senior",
 		},
 		{
@@ -65,7 +65,7 @@ func TestFederalTaxCalculation(t *testing.T) {
 			grossIncome: decimal.NewFromInt(80000),
 			age1:        66,                         // Over 65
 			age2:        67,                         // Over 65
-			expectedTax: decimal.NewFromFloat(5164), // (80000-33100): 23200*0.10 + 23700*0.12 = 5164
+			expectedTax: decimal.NewFromFloat(5139), // (80000-33200)=46800: 23850*0.10 + 22950*0.12 = 5139
 			description: "Additional standard deduction for both seniors",
 		},
 		{
@@ -73,7 +73,7 @@ func TestFederalTaxCalculation(t *testing.T) {
 			grossIncome: decimal.NewFromFloat(367399), // Their actual combined gross
 			age1:        61,
 			age2:        63,
-			expectedTax: decimal.NewFromFloat(67061), // (367399-30000) across all brackets
+			expectedTax: decimal.NewFromFloat(66670), // (367399-30000)=337399: 23850*0.10+73100*0.12+109750*0.22+130699*0.24 = 66669.76
 			description: "Real scenario: PersonA and PersonB's current income",
 		},
 	}
@@ -522,7 +522,7 @@ func TestComprehensiveTaxCalculation(t *testing.T) {
 			age1:         60,
 			age2:         62,
 			totalWages:   decimal.NewFromFloat(367399),
-			expectedFed:  decimal.NewFromFloat(67061), // Federal tax with standard deduction
+			expectedFed:  decimal.NewFromFloat(66670), // Federal tax with standard deduction (2025 brackets)
 			expectedSt:   decimal.NewFromFloat(11279), // PA state tax
 			expectedLoc:  decimal.NewFromFloat(3674),  // Local EIT
 			expectedFICA: decimal.NewFromFloat(17302), // FICA taxes with additional Medicare
@@ -541,7 +541,7 @@ func TestComprehensiveTaxCalculation(t *testing.T) {
 			age1:         65,
 			age2:         67,
 			totalWages:   decimal.Zero,
-			expectedFed:  decimal.NewFromFloat(19124), // Federal tax on retirement income with standard deduction
+			expectedFed:  decimal.NewFromFloat(18824), // Federal tax on retirement income with standard deduction (2025 brackets)
 			expectedSt:   decimal.Zero,                // PA doesn't tax retirement income
 			expectedLoc:  decimal.Zero,                // No local tax in retirement
 			expectedFICA: decimal.Zero,                // No FICA in retirement
@@ -560,7 +560,7 @@ func TestComprehensiveTaxCalculation(t *testing.T) {
 			age1:         60,
 			age2:         62,
 			totalWages:   decimal.NewFromFloat(100000),
-			expectedFed:  decimal.NewFromFloat(15406), // Federal tax on mixed income with standard deduction
+			expectedFed:  decimal.NewFromFloat(15128), // Federal tax on mixed income with standard deduction (2025 brackets)
 			expectedSt:   decimal.NewFromFloat(3070),  // PA tax on wages only
 			expectedLoc:  decimal.NewFromFloat(1000),  // Local tax on wages
 			expectedFICA: decimal.NewFromFloat(7650),  // FICA on wages only

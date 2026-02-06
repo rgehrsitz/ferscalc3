@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/rpgo/retirement-calculator/internal/domain"
+	"github.com/rpgo/retirement-calculator/pkg/dateutil"
 	"github.com/shopspring/decimal"
 )
 
@@ -159,14 +160,10 @@ func EstimateMAGI(pensionIncome, tspWithdrawals, taxableSSBenefits, otherIncome 
 	return pensionIncome.Add(tspWithdrawals).Add(taxableSSBenefits).Add(otherIncome)
 }
 
-// IsMedicareEligible checks if someone is eligible for Medicare (age 65+)
-// This duplicates the dateutil function but keeps Medicare logic self-contained
+// IsMedicareEligible checks if someone is eligible for Medicare (age 65+).
+// Delegates to dateutil.IsMedicareEligible for consistent age calculation.
 func IsMedicareEligible(birthDate, atDate time.Time) bool {
-	age := atDate.Year() - birthDate.Year()
-	if atDate.YearDay() < birthDate.YearDay() {
-		age--
-	}
-	return age >= 65
+	return dateutil.IsMedicareEligible(birthDate, atDate)
 }
 
 // calculateMedicarePremium calculates Medicare Part B premiums with IRMAA considerations

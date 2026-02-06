@@ -24,7 +24,16 @@ func NewSocialSecurityCalculator(birthYear int, benefitAtFRA decimal.Decimal) *S
 	}
 }
 
-// CalculateBenefitAtAge calculates the Social Security benefit at a specific claiming age
+// CalculateBenefitAtAge calculates the Social Security benefit at a specific claiming age.
+//
+// NOTE: The claimingAge parameter is an integer (whole years), which means this function
+// cannot model mid-year claiming (e.g., claiming at age 62 and 4 months). SSA reduction
+// and delayed-credit calculations are month-sensitive in practice. This approximation is
+// acceptable for long-range projections but may introduce small errors (~1-2%) for
+// individuals whose optimal claiming age falls between integer years.
+//
+// Future enhancement: Accept a fractional claiming age or (year, month) pair to enable
+// month-level granularity for early/delayed retirement credit calculations.
 func (ssc *SocialSecurityCalculator) CalculateBenefitAtAge(claimingAge int) decimal.Decimal {
 	if claimingAge < 62 {
 		return decimal.Zero

@@ -59,45 +59,66 @@ func TestCalculateFERSPensionNonFederal(t *testing.T) {
 
 func TestApplyFERSPensionCOLA(t *testing.T) {
 	tests := []struct {
-		name            string
-		currentPension  decimal.Decimal
-		inflationRate   decimal.Decimal
-		annuitantAge    int
-		expectedPension decimal.Decimal
+		name             string
+		currentPension   decimal.Decimal
+		inflationRate    decimal.Decimal
+		annuitantAge     int
+		isReducedAnnuity bool
+		expectedPension  decimal.Decimal
 	}{
 		{
-			name:            "No COLA before age 62",
-			currentPension:  decimal.NewFromInt(30000),
-			inflationRate:   decimal.NewFromFloat(0.03),
-			annuitantAge:    60,
-			expectedPension: decimal.NewFromInt(30000),
+			name:             "Reduced annuitant: No COLA before age 62",
+			currentPension:   decimal.NewFromInt(30000),
+			inflationRate:    decimal.NewFromFloat(0.03),
+			annuitantAge:     60,
+			isReducedAnnuity: true,
+			expectedPension:  decimal.NewFromInt(30000),
 		},
 		{
-			name:            "Full COLA at age 62 with 2% inflation",
-			currentPension:  decimal.NewFromInt(30000),
-			inflationRate:   decimal.NewFromFloat(0.02),
-			annuitantAge:    62,
-			expectedPension: decimal.NewFromInt(30600), // 30000 * 1.02
+			name:             "Unreduced annuitant: COLA applies before age 62",
+			currentPension:   decimal.NewFromInt(30000),
+			inflationRate:    decimal.NewFromFloat(0.02),
+			annuitantAge:     60,
+			isReducedAnnuity: false,
+			expectedPension:  decimal.NewFromInt(30600), // 30000 * 1.02
 		},
 		{
-			name:            "Capped COLA at age 62 with 2.5% inflation",
-			currentPension:  decimal.NewFromInt(30000),
-			inflationRate:   decimal.NewFromFloat(0.025),
-			annuitantAge:    62,
-			expectedPension: decimal.NewFromInt(30600), // 30000 * 1.02 (capped at 2%)
+			name:             "Full COLA at age 62 with 2% inflation",
+			currentPension:   decimal.NewFromInt(30000),
+			inflationRate:    decimal.NewFromFloat(0.02),
+			annuitantAge:     62,
+			isReducedAnnuity: false,
+			expectedPension:  decimal.NewFromInt(30600), // 30000 * 1.02
 		},
 		{
-			name:            "Reduced COLA at age 62 with 4% inflation",
-			currentPension:  decimal.NewFromInt(30000),
-			inflationRate:   decimal.NewFromFloat(0.04),
-			annuitantAge:    62,
-			expectedPension: decimal.NewFromInt(30900), // 30000 * 1.03 (4% - 1%)
+			name:             "Capped COLA at age 62 with 2.5% inflation",
+			currentPension:   decimal.NewFromInt(30000),
+			inflationRate:    decimal.NewFromFloat(0.025),
+			annuitantAge:     62,
+			isReducedAnnuity: false,
+			expectedPension:  decimal.NewFromInt(30600), // 30000 * 1.02 (capped at 2%)
+		},
+		{
+			name:             "Reduced COLA at age 62 with 4% inflation",
+			currentPension:   decimal.NewFromInt(30000),
+			inflationRate:    decimal.NewFromFloat(0.04),
+			annuitantAge:     62,
+			isReducedAnnuity: false,
+			expectedPension:  decimal.NewFromInt(30900), // 30000 * 1.03 (4% - 1%)
+		},
+		{
+			name:             "Reduced annuitant: COLA applies at age 62",
+			currentPension:   decimal.NewFromInt(30000),
+			inflationRate:    decimal.NewFromFloat(0.03),
+			annuitantAge:     62,
+			isReducedAnnuity: true,
+			expectedPension:  decimal.NewFromInt(30600), // 30000 * 1.02 (capped at 2% for 2-3% range)
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ApplyFERSPensionCOLA(tt.currentPension, tt.inflationRate, tt.annuitantAge)
+			result := ApplyFERSPensionCOLA(tt.currentPension, tt.inflationRate, tt.annuitantAge, tt.isReducedAnnuity)
 			assert.True(t, result.Equal(tt.expectedPension),
 				"Expected %s, got %s", tt.expectedPension, result)
 		})

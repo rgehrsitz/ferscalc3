@@ -76,14 +76,11 @@ func TestFinding4_TSPWithdrawalOrdering(t *testing.T) {
 	// RMD: $20,000
 	// Total Withdrawal Needed: $50,000
 
-	// Logic Expectation:
+	// Default ordering is "traditional_first":
 	// 1. RMD ($20k) from Traditional.
-	// 2. Remaining ($30k) from Roth.
+	// 2. Remaining ($30k) also from Traditional.
 	// 3. Growth applied.
-
-	// If logic was "Trad First" (Old way):
-	// 1. $50k from Trad.
-	// 2. $0 from Roth.
+	// Result: Roth untouched (~100k * growth ≈ 104.9k), Traditional reduced (~450k * growth ≈ 472k)
 
 	emp := &domain.Employee{
 		// Needs allocation to trigger the optimized path
@@ -92,35 +89,64 @@ func TestFinding4_TSPWithdrawalOrdering(t *testing.T) {
 		},
 	}
 
-	state := &personProjectionState{
-		employee:    emp,
-		traditional: decimal.NewFromInt(500000),
-		roth:        decimal.NewFromInt(100000),
-	}
+	retDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	result := &personAnnualResult{
-		isRetired:     true,
-		tspWithdrawal: decimal.NewFromInt(50000),
-		rmd:           decimal.NewFromInt(20000),
-	}
+	t.Run("traditional_first_default", func(t *testing.T) {
+		state := &personProjectionState{
+			employee:    emp,
+			scenario:    &domain.RetirementScenario{RetirementDate: retDate},
+			traditional: decimal.NewFromInt(500000),
+			roth:        decimal.NewFromInt(100000),
+		}
 
-	assumptions := &domain.GlobalAssumptions{}
+		result := &personAnnualResult{
+			isRetired:     true,
+			tspWithdrawal: decimal.NewFromInt(50000),
+			rmd:           decimal.NewFromInt(20000),
+		}
 
-	ce.updateTSPBalancesForPerson(state, time.Now(), assumptions, result)
+		assumptions := &domain.GlobalAssumptions{}
+		ce.updateTSPBalancesForPerson(state, time.Now(), assumptions, result)
 
-	// Check balances.
-	// G Fund fallback return is approx 4.93% (0.0493) or similar.
-	// Let's assume some growth happened.
+		// With traditional_first: Roth should be untouched (grew from 100k)
+		// G Fund return ~4.93%, so Roth ≈ 100k * 1.0493 ≈ 104.9k
+		if state.roth.LessThan(decimal.NewFromInt(90000)) {
+			t.Errorf("Finding 4 Fail: Roth balance %s suggests it was drawn down. Traditional-first default not working.", state.roth.StringFixed(2))
+		} else {
+			t.Logf("Finding 4 Success: Roth balance %s preserved (traditional_first ordering).", state.roth.StringFixed(2))
+		}
 
-	// Thresholds:
-	// If Roth was used ($30k withdrawal), End Roth should be roughly (100k - 30k) * growth = 70k * 1.05 = ~73.5k
-	// If Roth NOT used, End Roth should be roughly 100k * 1.05 = 105k
+		// Traditional should be reduced: (500k - 50k) * growth ≈ 450k * 1.0493 ≈ 472k
+		if state.traditional.GreaterThan(decimal.NewFromInt(480000)) {
+			t.Errorf("Finding 4 Fail: Traditional balance %s not sufficiently drawn down.", state.traditional.StringFixed(2))
+		}
+	})
 
-	if state.roth.GreaterThan(decimal.NewFromInt(90000)) {
-		t.Errorf("Finding 4 Fail: Roth balance %s suggests it was NOT used for excess withdrawal. Optimization likely not working.", state.roth.StringFixed(2))
-	} else {
-		t.Logf("Finding 4 Success: Roth balance %s indicates correct withdrawal ordering.", state.roth.StringFixed(2))
-	}
+	t.Run("roth_first_ordering", func(t *testing.T) {
+		state := &personProjectionState{
+			employee:    emp,
+			scenario:    &domain.RetirementScenario{RetirementDate: retDate, TSPWithdrawalOrdering: "roth_first"},
+			traditional: decimal.NewFromInt(500000),
+			roth:        decimal.NewFromInt(100000),
+		}
+
+		result := &personAnnualResult{
+			isRetired:     true,
+			tspWithdrawal: decimal.NewFromInt(50000),
+			rmd:           decimal.NewFromInt(20000),
+		}
+
+		assumptions := &domain.GlobalAssumptions{}
+		ce.updateTSPBalancesForPerson(state, time.Now(), assumptions, result)
+
+		// With roth_first: Roth should be drawn down ($30k excess from Roth)
+		// Roth: (100k - 30k) * growth ≈ 70k * 1.0493 ≈ 73.5k
+		if state.roth.GreaterThan(decimal.NewFromInt(90000)) {
+			t.Errorf("Finding 4 Fail: Roth balance %s suggests roth_first ordering not working.", state.roth.StringFixed(2))
+		} else {
+			t.Logf("Finding 4 Success: Roth balance %s drawn down (roth_first ordering).", state.roth.StringFixed(2))
+		}
+	})
 }
 
 // TestFinding5_SSProration verify SS proration when retiring mid-year after birthday.

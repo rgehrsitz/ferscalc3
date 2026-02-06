@@ -14,7 +14,7 @@ personal_details:
     ss_benefit_70: "5000.00"  # Monthly benefit at age 70
     fehb_premium_per_pay_period: "488.49"  # $488.49 per pay period (will be multiplied by 26 pay periods)
     survivor_benefit_election_percent: "0.00"
-    sick_leave_hours: "1868.0"  # Sick leave hours that count toward pension service credit
+    sick_leave_hours: "1868.0"  # Sick leave hours → service credit (2,087 hours = 1 year per OPM)
 
   person_b:
     name: "Person B"
@@ -31,7 +31,7 @@ personal_details:
     ss_benefit_70: "4860.00"  # Monthly benefit at age 70
     fehb_premium_per_pay_period: "0.00"  # Person B has FSA-HC instead of FEHB ($105.76 per pay period)
     survivor_benefit_election_percent: "0.00"
-    sick_leave_hours: "1057.5"  # Sick leave hours that count toward pension service credit
+    sick_leave_hours: "1057.5"  # Sick leave hours → service credit (2,087 hours = 1 year per OPM)
     # Optional block for non-federal spouses or outside pensions
     # fixed_retirement_income:
     #   annual_amount: "24000"
@@ -56,7 +56,8 @@ scenarios:
       retirement_date: "2025-12-27T00:00:00Z"
       ss_start_age: 62
       tsp_withdrawal_strategy: "variable_percentage"
-      tsp_withdrawal_rate: "0.01"  # 2.0% withdrawal rate (of current balance each year)
+      tsp_withdrawal_rate: "0.01"  # 1% withdrawal rate (of current balance each year)
+      # tsp_withdrawal_ordering: "traditional_first"  # Default: draw Traditional TSP before Roth
     person_b:
       employee_name: "person_b"
       retirement_date: "2025-08-30T00:00:00Z"
@@ -70,11 +71,33 @@ scenarios:
       retirement_date: "2027-02-28T00:00:00Z"
       ss_start_age: 62
       tsp_withdrawal_strategy: "variable_percentage"
-      tsp_withdrawal_rate: "0.01"   # 2.0% withdrawal rate (of current balance each year)
+      tsp_withdrawal_rate: "0.01"   # 1% withdrawal rate (of current balance each year)
+      # tsp_withdrawal_ordering: "roth_first"  # Alternative: draw Roth before Traditional
     person_b:
       employee_name: "person_b"
       retirement_date: "2025-08-30T00:00:00Z"
       ss_start_age: 62
       tsp_withdrawal_strategy: "variable_percentage"
-      tsp_withdrawal_rate: "0.01"   # 2.0% withdrawal rate (of current balance each year)
+      tsp_withdrawal_rate: "0.01"   # 1% withdrawal rate (of current balance each year)
+
+  # Example: floor_ceiling strategy with guardrails
+  # - name: "Floor/Ceiling Strategy Example"
+  #   person_a:
+  #     employee_name: "person_a"
+  #     retirement_date: "2028-01-01T00:00:00Z"
+  #     ss_start_age: 67
+  #     tsp_withdrawal_strategy: "floor_ceiling"
+  #     tsp_withdrawal_rate: "0.05"       # 5% of current balance
+  #     tsp_withdrawal_floor: "30000"     # Minimum $30k/year withdrawal
+  #     tsp_withdrawal_ceiling: "80000"   # Maximum $80k/year withdrawal
+  #     tsp_withdrawal_ordering: "traditional_first"
+
+  # Example: mortality modeling
+  #   mortality:
+  #     person_a:
+  #       death_age: 88
+  #     assumptions:
+  #       survivor_spending_factor: "0.75"     # Survivor needs 75% of couple income
+  #       tsp_spousal_transfer: "merge"        # Merge TSP balances on death
+  #       filing_status_switch: "next_year"    # Switch to single filing next year
 

@@ -86,15 +86,16 @@ func (ce *CalculationEngine) updateTSPBalances(traditional, roth, withdrawal, re
 	traditional = traditional.Mul(decimal.NewFromFloat(1).Add(returnRate))
 	roth = roth.Mul(decimal.NewFromFloat(1).Add(returnRate))
 
-	// Withdraw from Roth first, then traditional
-	if withdrawal.LessThanOrEqual(roth) {
-		roth = roth.Sub(withdrawal)
+	// Withdraw from Traditional first, then Roth (tax optimization:
+	// preserve Roth for tax-free growth, deplete taxable Traditional first)
+	if withdrawal.LessThanOrEqual(traditional) {
+		traditional = traditional.Sub(withdrawal)
 	} else {
-		remainingWithdrawal := withdrawal.Sub(roth)
-		roth = decimal.Zero
-		traditional = traditional.Sub(remainingWithdrawal)
-		if traditional.LessThan(decimal.Zero) {
-			traditional = decimal.Zero
+		remainingWithdrawal := withdrawal.Sub(traditional)
+		traditional = decimal.Zero
+		roth = roth.Sub(remainingWithdrawal)
+		if roth.LessThan(decimal.Zero) {
+			roth = decimal.Zero
 		}
 	}
 
@@ -345,7 +346,8 @@ func ProjectTSPWithTraditionalRoth(initialTraditional decimal.Decimal, initialRo
 
 		totalWithdrawal := strategy.CalculateWithdrawal(currentTraditional.Add(currentRoth), year, targetIncomeForYear, age, isRMDYear, rmdAmount)
 
-		// Prioritize Roth withdrawals first (no RMD requirement)
+		// Withdraw from Traditional first, then Roth (tax optimization:
+		// deplete taxable Traditional before tax-free Roth)
 		var rothWithdrawal, traditionalWithdrawal decimal.Decimal
 
 		if isRMDYear && rmdAmount.GreaterThan(decimal.Zero) {
@@ -354,20 +356,25 @@ func ProjectTSPWithTraditionalRoth(initialTraditional decimal.Decimal, initialRo
 			remainingWithdrawal := totalWithdrawal.Sub(rmdAmount)
 
 			if remainingWithdrawal.GreaterThan(decimal.Zero) {
-				// Take remaining from Roth
-				if remainingWithdrawal.GreaterThan(currentRoth.Add(rothGrowth)) {
-					rothWithdrawal = currentRoth.Add(rothGrowth)
+				// Take additional from Traditional first, then Roth
+				additionalTraditional := currentTraditional.Add(traditionalGrowth).Sub(traditionalWithdrawal)
+				if additionalTraditional.IsNegative() {
+					additionalTraditional = decimal.Zero
+				}
+				if remainingWithdrawal.LessThanOrEqual(additionalTraditional) {
+					traditionalWithdrawal = traditionalWithdrawal.Add(remainingWithdrawal)
 				} else {
-					rothWithdrawal = remainingWithdrawal
+					traditionalWithdrawal = traditionalWithdrawal.Add(additionalTraditional)
+					rothWithdrawal = remainingWithdrawal.Sub(additionalTraditional)
 				}
 			}
 		} else {
-			// Take from Roth first, then Traditional
-			if totalWithdrawal.GreaterThan(currentRoth.Add(rothGrowth)) {
-				rothWithdrawal = currentRoth.Add(rothGrowth)
-				traditionalWithdrawal = totalWithdrawal.Sub(rothWithdrawal)
+			// Take from Traditional first, then Roth
+			if totalWithdrawal.GreaterThan(currentTraditional.Add(traditionalGrowth)) {
+				traditionalWithdrawal = currentTraditional.Add(traditionalGrowth)
+				rothWithdrawal = totalWithdrawal.Sub(traditionalWithdrawal)
 			} else {
-				rothWithdrawal = totalWithdrawal
+				traditionalWithdrawal = totalWithdrawal
 			}
 		}
 

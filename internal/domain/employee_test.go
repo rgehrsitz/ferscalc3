@@ -101,8 +101,9 @@ func TestEmployee_YearsOfService_WithSickLeave(t *testing.T) {
 	atDate := time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)
 	years := employee.YearsOfService(atDate)
 
-	// Should be approximately 40.78 + 0.71 (260 days / 365.25) = 41.49 years
-	expected := "41.4948"
+	// Should be approximately 40.78 + 0.997 (2080 hours / 2087 hours per year) = 41.78 years
+	// OPM standard: 2,087 hours = 1 federal work year (per 5 CFR § 630.301)
+	expected := "41.7796"
 	assert.Equal(t, expected, years.StringFixed(4))
 }
 
