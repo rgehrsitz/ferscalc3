@@ -226,7 +226,7 @@ FERSCalc.Forms = (function() {
       cola_general_rate: parseFloat(n('ga-cola')) || 0.025,
       projection_years: parseInt(v('ga-years')) || 25,
       current_location: {
-        state: v('ga-state') || 'PA',
+        state: normalizeStateForUI(v('ga-state')) || 'Pennsylvania',
         county: v('ga-county') || '',
         municipality: v('ga-municipality') || '',
       },
@@ -371,7 +371,7 @@ FERSCalc.Forms = (function() {
     setVal('ga-cola', ga.cola_general_rate);
     setVal('ga-years', ga.projection_years);
     if (ga.current_location) {
-      setVal('ga-state', ga.current_location.state);
+      setVal('ga-state', normalizeStateForUI(ga.current_location.state));
       setVal('ga-county', ga.current_location.county);
       setVal('ga-municipality', ga.current_location.municipality);
     }
@@ -469,6 +469,13 @@ FERSCalc.Forms = (function() {
     if (el && val !== undefined && val !== null) {
       el.value = val;
     }
+  }
+
+  function normalizeStateForUI(state) {
+    const s = String(state || '').trim().toUpperCase();
+    if (s === 'PA') return 'Pennsylvania';
+    if (s === 'NJ') return 'New Jersey';
+    return state || '';
   }
 
   /**

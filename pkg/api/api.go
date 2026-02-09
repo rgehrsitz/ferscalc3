@@ -63,7 +63,7 @@ func (s *Service) RunScenario(ctx context.Context, cfg *domain.Configuration, de
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
-	engine := calculation.NewCalculationEngineWithConfigAndInflation(cfg.GlobalAssumptions.FederalRules, cfg.GlobalAssumptions.InflationRate)
+	engine := calculation.NewCalculationEngineWithConfig(cfg.GlobalAssumptions)
 	engine.Debug = debug
 
 	results, err := engine.RunScenariosWithContext(ctx, cfg)
