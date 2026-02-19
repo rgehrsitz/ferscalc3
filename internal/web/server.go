@@ -2,22 +2,33 @@ package web
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rpgo/retirement-calculator/internal/config"
 	"github.com/rpgo/retirement-calculator/internal/domain"
 	"github.com/rpgo/retirement-calculator/pkg/api"
+	"gopkg.in/yaml.v3"
 )
+
+//go:embed frontend/*
+var frontendFS embed.FS
+
+// Default idle timeout before auto-shutdown when no browser clients are connected.
+const defaultIdleTimeout = 30 * time.Second
 
 // Server represents the web server instance
 type Server struct {
@@ -26,9 +37,17 @@ type Server struct {
 	port               string
 	allowedCORSOrigins []string
 	maxBodyBytes       int64
+	idleShutdown       bool          // enable auto-shutdown when no clients connected
+	idleTimeout        time.Duration // how long to wait after last heartbeat
+
+	// heartbeat tracking
+	mu            sync.Mutex
+	lastHeartbeat time.Time
 }
 
-// NewServer creates a new web server instance
+// NewServer creates a new web server instance.
+// By default, idle-shutdown is enabled so the process exits when no browser
+// is connected. Call SetIdleShutdown(false) to disable (e.g. for development).
 func NewServer(port string) *Server {
 	apiService := api.NewService()
 	router := mux.NewRouter()
@@ -39,12 +58,21 @@ func NewServer(port string) *Server {
 		port:               port,
 		allowedCORSOrigins: parseCORSOrigins(os.Getenv("FERSCALC_CORS_ORIGINS")),
 		maxBodyBytes:       parseMaxBodyBytes(os.Getenv("FERSCALC_MAX_BODY_BYTES")),
+		idleShutdown:       true,
+		idleTimeout:        defaultIdleTimeout,
+		lastHeartbeat:      time.Now(), // give the browser time to connect
 	}
 
 	server.setupRoutes()
 	server.setupMiddleware()
 
 	return server
+}
+
+// SetIdleShutdown enables or disables automatic shutdown when no browser
+// clients are connected.
+func (s *Server) SetIdleShutdown(enabled bool) {
+	s.idleShutdown = enabled
 }
 
 // setupMiddleware configures middleware for the server
@@ -96,20 +124,64 @@ func (s *Server) setupRoutes() {
 	apiV1.HandleFunc("/configurations", s.handleGetConfigurations).Methods(http.MethodGet)
 	apiV1.HandleFunc("/configurations", s.handleCreateConfiguration).Methods(http.MethodPost)
 	apiV1.HandleFunc("/configurations/example", s.handleGetExampleConfiguration).Methods(http.MethodGet)
+	apiV1.HandleFunc("/configurations/export-yaml", s.handleExportYAML).Methods(http.MethodPost)
+	apiV1.HandleFunc("/configurations/parse-yaml", s.handleParseYAML).Methods(http.MethodPost)
 	apiV1.HandleFunc("/configurations/{id}", s.handleGetConfiguration).Methods(http.MethodGet)
 	apiV1.HandleFunc("/configurations/{id}", s.handleUpdateConfiguration).Methods(http.MethodPut)
 	apiV1.HandleFunc("/configurations/{id}", s.handleDeleteConfiguration).Methods(http.MethodDelete)
 
 	// Scenario endpoints
 	apiV1.HandleFunc("/scenarios/run", s.handleRunScenario).Methods(http.MethodPost)
+
+	// Heartbeat — browser pings this to keep the server alive
+	apiV1.HandleFunc("/heartbeat", s.handleHeartbeat).Methods(http.MethodPost)
+
+	// SPA frontend — serve embedded static files with fallback to index.html
+	s.router.PathPrefix("/").Handler(spaHandler())
+}
+
+// spaHandler returns an http.Handler that serves the embedded frontend files.
+// For any path that does not match a real file, it serves index.html (SPA fallback).
+func spaHandler() http.Handler {
+	// Strip the "frontend" prefix so "/" maps to "frontend/index.html"
+	subFS, err := fs.Sub(frontendFS, "frontend")
+	if err != nil {
+		log.Fatalf("Failed to create sub filesystem for frontend: %v", err)
+	}
+	fileServer := http.FileServer(http.FS(subFS))
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Try to serve the actual file
+		path := r.URL.Path
+		if path == "/" {
+			path = "/index.html"
+		}
+
+		// Check if file exists in the embedded FS
+		filePath := strings.TrimPrefix(path, "/")
+		if _, err := fs.Stat(subFS, filePath); err == nil {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		// SPA fallback: serve index.html for any unknown path
+		indexData, err := fs.ReadFile(subFS, "index.html")
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(indexData)
+	})
 }
 
 // Run starts the server and listens for requests
 func (s *Server) Run() error {
 	addr := fmt.Sprintf(":%s", s.port)
 	log.Printf("Server starting on %s", addr)
+	log.Printf("Open http://localhost:%s in your browser", s.port)
 
-	server := &http.Server{
+	httpServer := &http.Server{
 		Addr:         addr,
 		Handler:      s.router,
 		ReadTimeout:  30 * time.Second,
@@ -117,27 +189,59 @@ func (s *Server) Run() error {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
-
-	go func() {
-		<-quit
-		log.Println("Server shutting down...")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// shutdown is used by both signal handler and idle watchdog
+	shutdown := func(reason string) {
+		log.Printf("Server shutting down (%s)...", reason)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-
-		if err := server.Shutdown(ctx); err != nil {
+		if err := httpServer.Shutdown(ctx); err != nil {
 			log.Printf("Server shutdown error: %v", err)
 		}
+	}
+
+	// Graceful shutdown on Ctrl+C / SIGINT
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+	go func() {
+		<-quit
+		shutdown("interrupt signal")
 	}()
 
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	// Idle-shutdown watchdog: exit when no browser client has sent a
+	// heartbeat for longer than the idle timeout.
+	if s.idleShutdown {
+		log.Printf("Idle auto-shutdown enabled (timeout: %s)", s.idleTimeout)
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				s.mu.Lock()
+				idle := time.Since(s.lastHeartbeat)
+				s.mu.Unlock()
+				if idle > s.idleTimeout {
+					shutdown(fmt.Sprintf("no browser connected for %s", s.idleTimeout))
+					return
+				}
+			}
+		}()
+	}
+
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("server failed to start: %w", err)
 	}
 
 	return nil
+}
+
+// handleHeartbeat records that a browser client is still connected.
+// The frontend sends a POST here every ~10 seconds.
+func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	s.lastHeartbeat = time.Now()
+	s.mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ok"}`))
 }
 
 // handleGetStates returns a list of valid states for tax calculations
@@ -161,6 +265,7 @@ func (s *Server) handleGetTSPStrategies(w http.ResponseWriter, r *http.Request) 
 		"need_based",
 		"variable_percentage",
 		"fixed_annuity",
+		"floor_ceiling",
 	}
 	s.sendJSONResponse(w, strategies, http.StatusOK)
 }
@@ -225,6 +330,87 @@ func (s *Server) handleGetExampleConfiguration(w http.ResponseWriter, r *http.Re
 	parser := config.NewInputParser()
 	example := parser.CreateExampleConfiguration()
 	s.sendJSONResponse(w, example, http.StatusOK)
+}
+
+// handleExportYAML accepts a JSON configuration and returns it as YAML
+func (s *Server) handleExportYAML(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, s.maxBodyBytes)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendErrorResponse(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+
+	// Parse JSON into a generic map to preserve structure
+	var data interface{}
+	if err := json.Unmarshal(body, &data); err != nil {
+		sendErrorResponse(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Marshal to YAML
+	yamlBytes, err := yaml.Marshal(data)
+	if err != nil {
+		sendErrorResponse(w, fmt.Sprintf("YAML marshal failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=ferscalc_config.yaml")
+	w.WriteHeader(http.StatusOK)
+	w.Write(yamlBytes)
+}
+
+// handleParseYAML accepts raw YAML and returns it as parsed JSON
+func (s *Server) handleParseYAML(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, s.maxBodyBytes)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendErrorResponse(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+
+	// Parse YAML into a generic map
+	var data interface{}
+	if err := yaml.Unmarshal(body, &data); err != nil {
+		sendErrorResponse(w, fmt.Sprintf("Invalid YAML: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Convert YAML map keys from interface{} to string for JSON compatibility
+	data = convertYAMLToJSON(data)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Printf("Error encoding JSON response: %v", err)
+	}
+}
+
+// convertYAMLToJSON recursively converts map[interface{}]interface{} to map[string]interface{}
+// which is needed because yaml.v3 uses interface{} keys by default
+func convertYAMLToJSON(val interface{}) interface{} {
+	switch v := val.(type) {
+	case map[interface{}]interface{}:
+		result := make(map[string]interface{})
+		for key, value := range v {
+			result[fmt.Sprint(key)] = convertYAMLToJSON(value)
+		}
+		return result
+	case map[string]interface{}:
+		result := make(map[string]interface{})
+		for key, value := range v {
+			result[key] = convertYAMLToJSON(value)
+		}
+		return result
+	case []interface{}:
+		for i, item := range v {
+			v[i] = convertYAMLToJSON(item)
+		}
+		return v
+	default:
+		return v
+	}
 }
 
 // handleRunScenario runs a scenario calculation

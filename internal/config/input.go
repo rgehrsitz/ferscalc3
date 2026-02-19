@@ -76,6 +76,10 @@ func (ip *InputParser) LoadFromJSONFile(filename string) (*domain.Configuration,
 
 // ValidateConfiguration validates the loaded configuration
 func (ip *InputParser) ValidateConfiguration(config *domain.Configuration) error {
+	// Ensure optional nested config defaults are present even when callers
+	// construct Configuration in-memory and call ValidateConfiguration directly.
+	ip.applyDefaults(config)
+
 	// Validate personal details
 	if len(config.PersonalDetails) == 0 {
 		return fmt.Errorf("no personal details provided")
@@ -448,6 +452,86 @@ func (ip *InputParser) CreateExampleConfiguration() *domain.Configuration {
 
 // applyDefaults populates default values for missing optional fields
 func (ip *InputParser) applyDefaults(cfg *domain.Configuration) {
+	// Social Security taxation thresholds defaults (2025)
+	if cfg.GlobalAssumptions.FederalRules.SocialSecurityTaxThresholds.MarriedFilingJointly.Threshold1.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.SocialSecurityTaxThresholds.MarriedFilingJointly.Threshold1 = decimal.NewFromInt(32000)
+	}
+	if cfg.GlobalAssumptions.FederalRules.SocialSecurityTaxThresholds.MarriedFilingJointly.Threshold2.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.SocialSecurityTaxThresholds.MarriedFilingJointly.Threshold2 = decimal.NewFromInt(44000)
+	}
+	if cfg.GlobalAssumptions.FederalRules.SocialSecurityTaxThresholds.Single.Threshold1.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.SocialSecurityTaxThresholds.Single.Threshold1 = decimal.NewFromInt(25000)
+	}
+	if cfg.GlobalAssumptions.FederalRules.SocialSecurityTaxThresholds.Single.Threshold2.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.SocialSecurityTaxThresholds.Single.Threshold2 = decimal.NewFromInt(34000)
+	}
+
+	// Social Security benefit rules defaults
+	if cfg.GlobalAssumptions.FederalRules.SocialSecurityRules.EarlyRetirementReduction.First36MonthsRate.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.SocialSecurityRules.EarlyRetirementReduction.First36MonthsRate = decimal.NewFromFloat(0.0055556)
+	}
+	if cfg.GlobalAssumptions.FederalRules.SocialSecurityRules.EarlyRetirementReduction.AdditionalMonthsRate.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.SocialSecurityRules.EarlyRetirementReduction.AdditionalMonthsRate = decimal.NewFromFloat(0.0041667)
+	}
+	if cfg.GlobalAssumptions.FederalRules.SocialSecurityRules.DelayedRetirementCredit.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.SocialSecurityRules.DelayedRetirementCredit = decimal.NewFromFloat(0.0066667)
+	}
+
+	// FERS rules defaults
+	if cfg.GlobalAssumptions.FederalRules.FERSRules.TSPMatchingRate.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FERSRules.TSPMatchingRate = decimal.NewFromFloat(0.05)
+	}
+	if cfg.GlobalAssumptions.FederalRules.FERSRules.TSPMatchingThreshold.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FERSRules.TSPMatchingThreshold = decimal.NewFromFloat(0.05)
+	}
+	if cfg.GlobalAssumptions.FederalRules.FERSRules.SRSEarningsLimit.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FERSRules.SRSEarningsLimit = decimal.NewFromInt(23400)
+	}
+
+	// Federal income tax defaults (2025)
+	if cfg.GlobalAssumptions.FederalRules.FederalTaxConfig.StandardDeductionMFJ.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FederalTaxConfig.StandardDeductionMFJ = decimal.NewFromInt(30000)
+	}
+	if cfg.GlobalAssumptions.FederalRules.FederalTaxConfig.StandardDeductionSingle.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FederalTaxConfig.StandardDeductionSingle = decimal.NewFromInt(15000)
+	}
+	if cfg.GlobalAssumptions.FederalRules.FederalTaxConfig.AdditionalStandardDeduction.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FederalTaxConfig.AdditionalStandardDeduction = decimal.NewFromInt(1600)
+	}
+
+	// State/local defaults
+	if cfg.GlobalAssumptions.FederalRules.StateLocalTaxConfig.PennsylvaniaRate.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.StateLocalTaxConfig.PennsylvaniaRate = decimal.NewFromFloat(0.0307)
+	}
+	if cfg.GlobalAssumptions.FederalRules.StateLocalTaxConfig.UpperMakefieldEITRate.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.StateLocalTaxConfig.UpperMakefieldEITRate = decimal.NewFromFloat(0.01)
+	}
+
+	// FICA defaults (2025)
+	if cfg.GlobalAssumptions.FederalRules.FICATaxConfig.SocialSecurityWageBase.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FICATaxConfig.SocialSecurityWageBase = decimal.NewFromInt(176100)
+	}
+	if cfg.GlobalAssumptions.FederalRules.FICATaxConfig.SocialSecurityRate.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FICATaxConfig.SocialSecurityRate = decimal.NewFromFloat(0.062)
+	}
+	if cfg.GlobalAssumptions.FederalRules.FICATaxConfig.MedicareRate.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FICATaxConfig.MedicareRate = decimal.NewFromFloat(0.0145)
+	}
+	if cfg.GlobalAssumptions.FederalRules.FICATaxConfig.AdditionalMedicareRate.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FICATaxConfig.AdditionalMedicareRate = decimal.NewFromFloat(0.009)
+	}
+	if cfg.GlobalAssumptions.FederalRules.FICATaxConfig.HighIncomeThresholdMFJ.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.FICATaxConfig.HighIncomeThresholdMFJ = decimal.NewFromInt(250000)
+	}
+
+	// Medicare defaults (2025)
+	if cfg.GlobalAssumptions.FederalRules.MedicareConfig.BasePremium2025.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.MedicareConfig.BasePremium2025 = decimal.NewFromFloat(185.00)
+	}
+	if cfg.GlobalAssumptions.FederalRules.MedicareConfig.PremiumInflationRate.IsZero() {
+		cfg.GlobalAssumptions.FederalRules.MedicareConfig.PremiumInflationRate = decimal.NewFromFloat(0.055)
+	}
+
 	// FEHB config defaults if not provided
 	if cfg.GlobalAssumptions.FederalRules.FEHBConfig.PayPeriodsPerYear == 0 {
 		cfg.GlobalAssumptions.FederalRules.FEHBConfig.PayPeriodsPerYear = 26

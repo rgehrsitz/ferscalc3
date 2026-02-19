@@ -169,7 +169,11 @@ func TestNewJerseyPensionExclusion(t *testing.T) {
 				TSPWithdrawalsTrad: tt.tspIncome,
 			}
 
-			tax := calc.CalculateTax(income, tt.isRetired)
+			tax := calc.CalculateTax(income, StateTaxContext{
+				IsRetired:                   tt.isRetired,
+				FilingStatus:                "mfj",
+				EligibleRetirementExclusion: tt.isRetired,
+			})
 
 			if tt.name == "Tier 1: Income $90k (All Pension) -> Fully Excluded" {
 				assert.True(t, tax.IsZero(), "Tax should be zero for fully excluded pension")

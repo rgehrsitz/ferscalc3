@@ -138,7 +138,11 @@ func TestNewJerseyTaxCalculation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tax := calculator.CalculateTax(tt.income, tt.isRetired)
+			tax := calculator.CalculateTax(tt.income, StateTaxContext{
+				IsRetired:                   tt.isRetired,
+				FilingStatus:                "mfj",
+				EligibleRetirementExclusion: tt.isRetired,
+			})
 
 			difference := tax.Sub(tt.expectedTax).Abs()
 			assert.True(t, difference.LessThan(decimal.NewFromFloat(1)),
@@ -208,7 +212,11 @@ func TestPennsylvaniaTaxCalculation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tax := calculator.CalculateTax(tt.income, tt.isRetired)
+			tax := calculator.CalculateTax(tt.income, StateTaxContext{
+				IsRetired:                   tt.isRetired,
+				FilingStatus:                "mfj",
+				EligibleRetirementExclusion: tt.isRetired,
+			})
 
 			// Allow for rounding differences (within $1)
 			difference := tax.Sub(tt.expectedTax).Abs()
@@ -597,4 +605,118 @@ func TestComprehensiveTaxCalculation(t *testing.T) {
 				tt.expectedFICA.StringFixed(2), fica.StringFixed(2), ficaDiff.StringFixed(2))
 		})
 	}
+}
+
+func TestNewComprehensiveTaxCalculatorWithConfig_NormalizesStateNames(t *testing.T) {
+	rules := domain.Configuration{
+		GlobalAssumptions: domain.GlobalAssumptions{
+			FederalRules: domain.FederalRules{
+				StateLocalTaxConfig: domain.StateLocalTaxConfig{
+					PennsylvaniaRate: decimal.NewFromFloat(0.0307),
+				},
+			},
+		},
+	}.GlobalAssumptions.FederalRules
+	inflation := decimal.NewFromFloat(0.025)
+
+	tests := []struct {
+		name     string
+		state    string
+		expectNJ bool
+	}{
+		{name: "NJ abbreviation", state: "NJ", expectNJ: true},
+		{name: "NJ full name", state: "New Jersey", expectNJ: true},
+		{name: "NJ case-insensitive", state: "new jersey", expectNJ: true},
+		{name: "PA abbreviation", state: "PA", expectNJ: false},
+		{name: "PA full name", state: "Pennsylvania", expectNJ: false},
+		{name: "Unknown defaults to PA", state: "VA", expectNJ: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			calc := NewComprehensiveTaxCalculatorWithConfig(rules, tt.state, inflation)
+			_, isNJ := calc.StateTaxCalc.(*NewJerseyTaxCalculator)
+			assert.Equal(t, tt.expectNJ, isNJ)
+		})
+	}
+}
+
+func TestNewJersey_NoPALocalEIT(t *testing.T) {
+	rules := domain.Configuration{
+		GlobalAssumptions: domain.GlobalAssumptions{
+			FederalRules: domain.FederalRules{
+				StateLocalTaxConfig: domain.StateLocalTaxConfig{
+					PennsylvaniaRate:      decimal.NewFromFloat(0.0307),
+					UpperMakefieldEITRate: decimal.NewFromFloat(0.01),
+				},
+			},
+		},
+	}.GlobalAssumptions.FederalRules
+	calc := NewComprehensiveTaxCalculatorWithConfig(rules, "NJ", decimal.NewFromFloat(0.025))
+
+	income := domain.TaxableIncome{
+		Salary:     decimal.NewFromInt(100000),
+		WageIncome: decimal.NewFromInt(100000),
+	}
+	_, _, local, _ := calc.CalculateTotalTaxes(income, false, 50, 50, decimal.NewFromInt(100000))
+	assert.True(t, local.IsZero(), "NJ should not apply Upper Makefield local EIT")
+}
+
+func TestNewJersey_TransitionYearRetirementExclusionApplied(t *testing.T) {
+	calc := NewNewJerseyTaxCalculator()
+	income := domain.TaxableIncome{
+		WageIncome:         decimal.NewFromInt(100000),
+		FERSPension:        decimal.NewFromInt(30000),
+		TSPWithdrawalsTrad: decimal.Zero,
+	}
+
+	withExclusion := calc.CalculateTax(income, StateTaxContext{
+		IsRetired:                   false,
+		FilingStatus:                "mfj",
+		EligibleRetirementExclusion: true,
+	})
+	withoutExclusion := calc.CalculateTax(income, StateTaxContext{
+		IsRetired:                   false,
+		FilingStatus:                "mfj",
+		EligibleRetirementExclusion: false,
+	})
+
+	assert.True(t, withExclusion.LessThan(withoutExclusion), "transition year should receive retirement exclusion when eligible")
+}
+
+func TestNewJersey_FilingStatusAffectsBrackets(t *testing.T) {
+	calc := NewNewJerseyTaxCalculator()
+	income := domain.TaxableIncome{
+		WageIncome: decimal.NewFromInt(120000),
+	}
+
+	mfjTax := calc.CalculateTax(income, StateTaxContext{
+		IsRetired:                   false,
+		FilingStatus:                "mfj",
+		EligibleRetirementExclusion: false,
+	})
+	singleTax := calc.CalculateTax(income, StateTaxContext{
+		IsRetired:                   false,
+		FilingStatus:                "single",
+		EligibleRetirementExclusion: false,
+	})
+
+	assert.True(t, singleTax.GreaterThan(mfjTax), "single filer should generally owe more NJ tax at this income than MFJ")
+}
+
+func TestNewJersey_RateOverrideFromConfig(t *testing.T) {
+	cfg := domain.StateLocalTaxConfig{
+		NewJerseyRate: decimal.NewFromFloat(0.05),
+	}
+	calc := NewNewJerseyTaxCalculatorWithConfig(cfg)
+	income := domain.TaxableIncome{
+		WageIncome: decimal.NewFromInt(100000),
+	}
+
+	tax := calc.CalculateTax(income, StateTaxContext{
+		IsRetired:                   false,
+		FilingStatus:                "mfj",
+		EligibleRetirementExclusion: false,
+	})
+	assert.True(t, tax.Equal(decimal.NewFromInt(5000)), "expected flat override NJ tax at 5%")
 }
