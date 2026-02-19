@@ -31,6 +31,12 @@ type Employee struct {
 	// Sick Leave Credit (for pension calculation)
 	SickLeaveHours decimal.Decimal `yaml:"sick_leave_hours,omitempty" json:"sick_leave_hours,omitempty"`
 
+	// EmployeeContributions is the total after-tax amount the employee contributed to FERS
+	// over their entire career. Used for the IRS Simplified Method exclusion calculation
+	// (IRS Publication 721), which determines the tax-free portion of each pension payment.
+	// If zero or omitted, no exclusion is applied and the full pension is taxable.
+	EmployeeContributions decimal.Decimal `yaml:"employee_contributions,omitempty" json:"employee_contributions,omitempty"`
+
 	// TSP Asset Allocation (optional - uses default allocation if not specified)
 	TSPAllocation *TSPAllocation `yaml:"tsp_allocation,omitempty" json:"tsp_allocation,omitempty"`
 

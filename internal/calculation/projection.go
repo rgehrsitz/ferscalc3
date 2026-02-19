@@ -59,6 +59,22 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 	personAStrategy := ce.createTSPStrategy(&scenario.PersonA, personA.TSPBalanceTraditional.Add(personA.TSPBalanceRoth), assumptions.InflationRate)
 	personBStrategy := ce.createTSPStrategy(&scenario.PersonB, personB.TSPBalanceTraditional.Add(personB.TSPBalanceRoth), assumptions.InflationRate)
 
+	// Compute IRS Simplified Method exclusions once per person at their retirement date.
+	// The annual exclusion is fixed at retirement age and reused every projection year.
+	// Reference: IRS Publication 721, 26 USC § 72.
+	personAIRSExclusion := decimal.Zero
+	if personA.EmployeeContributions.GreaterThan(decimal.Zero) {
+		retAgeA := personA.Age(scenario.PersonA.RetirementDate)
+		hasSurvivorA := personA.SurvivorBenefitElectionPercent.GreaterThan(decimal.Zero)
+		personAIRSExclusion = CalculateIRSSimplifiedMethodExclusion(personA.EmployeeContributions, retAgeA, hasSurvivorA)
+	}
+	personBIRSExclusion := decimal.Zero
+	if personB.EmployeeContributions.GreaterThan(decimal.Zero) {
+		retAgeB := personB.Age(scenario.PersonB.RetirementDate)
+		hasSurvivorB := personB.SurvivorBenefitElectionPercent.GreaterThan(decimal.Zero)
+		personBIRSExclusion = CalculateIRSSimplifiedMethodExclusion(personB.EmployeeContributions, retAgeB, hasSurvivorB)
+	}
+
 	personStates := []personProjectionState{
 		newPersonProjectionState(personA, &scenario.PersonA, personAStrategy, personADeathYearIndex, scenarioMortalitySpec(scenario, true), "PersonA", ssProrationMonthlyAfterRetirement, projectionStartYear),
 		newPersonProjectionState(personB, &scenario.PersonB, personBStrategy, personBDeathYearIndex, scenarioMortalitySpec(scenario, false), "PersonB", ssProrationMonthlyAfterRetirement, projectionStartYear),
@@ -187,6 +203,7 @@ func (ce *CalculationEngine) GenerateAnnualProjection(personA, personB *domain.E
 			TSPWithdrawals:   [2]decimal.Decimal{yearResults[0].tspWithdrawal, yearResults[1].tspWithdrawal},
 			SocialSecurity:   [2]decimal.Decimal{yearResults[0].socialSecurity, yearResults[1].socialSecurity},
 			WorkingIncome:    [2]decimal.Decimal{yearResults[0].salary, yearResults[1].salary},
+			IRSExclusions:    [2]decimal.Decimal{personAIRSExclusion, personBIRSExclusion},
 		}
 		taxResult := ce.calculateTaxes(taxInput)
 		federalTax := taxResult.FederalTax

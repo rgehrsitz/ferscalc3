@@ -1,0 +1,23 @@
+ruleset:
+  year: 2025
+  source: TEST_SIMPLE_1.0
+person:
+  birth_date: '1965-06-15'
+  retirement_date: '2026-01-01'
+  high3: 95000.0
+  service_years: 25.0
+  fers: true
+  csrs: false
+  survivor_pct: 0.0
+tsp:
+  withdrawal_fixed: 6000.0
+taxes:
+  flat_federal_rate: 0.12
+  flat_state_rate: 0.05
+social:
+  claim_age: 67
+  primary: 22000.0
+  ss_age62_estimate: 16000.0
+simulation:
+  years: 5
+  runs: 1

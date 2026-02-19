@@ -637,6 +637,11 @@ type TaxCalculationInput struct {
 	TSPWithdrawals   [2]decimal.Decimal // [PersonA, PersonB]
 	SocialSecurity   [2]decimal.Decimal // [PersonA, PersonB]
 	WorkingIncome    [2]decimal.Decimal // [PersonA, PersonB]
+	// IRSExclusions is the annual IRS Simplified Method tax-free exclusion for each person.
+	// Computed once at retirement from CalculateIRSSimplifiedMethodExclusion() and reused
+	// each projection year. Reduces taxable pension income dollar-for-dollar.
+	// See: IRS Publication 721, 26 USC § 72.
+	IRSExclusions [2]decimal.Decimal // [PersonA, PersonB]
 }
 
 // TaxCalculationResult contains all tax calculation outputs
@@ -671,6 +676,7 @@ func (ce *CalculationEngine) calculateTaxes(input TaxCalculationInput) TaxCalcul
 		input.SocialSecurity[0], input.SocialSecurity[1],
 		input.WorkingIncome[0], input.WorkingIncome[1],
 		input.BaseYear,
+		input.IRSExclusions[0], input.IRSExclusions[1],
 	)
 
 	var result taxResult
@@ -733,6 +739,10 @@ type taxComputationContext struct {
 	workingIncomeB   decimal.Decimal
 	currentSalaryA   decimal.Decimal
 	currentSalaryB   decimal.Decimal
+	// irsExclusionA/B is the annual IRS Simplified Method tax-free exclusion per person.
+	// Applied to FERSPension before computing taxable income.
+	irsExclusionA decimal.Decimal
+	irsExclusionB decimal.Decimal
 }
 
 func newTaxComputationContext(
@@ -746,6 +756,7 @@ func newTaxComputationContext(
 	socialSecurityA, socialSecurityB decimal.Decimal,
 	workingIncomeA, workingIncomeB decimal.Decimal,
 	baseYear int,
+	irsExclusionA, irsExclusionB decimal.Decimal,
 ) taxComputationContext {
 	if baseYear == 0 {
 		baseYear = ProjectionBaseYear
@@ -780,6 +791,8 @@ func newTaxComputationContext(
 		workingIncomeB:   workingIncomeB,
 		currentSalaryA:   personA.CurrentSalary,
 		currentSalaryB:   personB.CurrentSalary,
+		irsExclusionA:    irsExclusionA,
+		irsExclusionB:    irsExclusionB,
 	}
 }
 
@@ -903,9 +916,17 @@ func (ce *CalculationEngine) calculateTransitionYearTaxes(ctx taxComputationCont
 		taxableSS = ce.TaxCalc.SSTaxCalc.CalculateTaxableSocialSecurity(totalSS, provisional)
 	}
 
+	// Apply IRS Simplified Method exclusion for the pension portion (IRS Pub 721 / 26 USC § 72)
+	grossPensionTrans := ctx.totalPensionWithSurvivor()
+	totalIRSExclusionTrans := ctx.irsExclusionA.Add(ctx.irsExclusionB)
+	taxablePensionTrans := grossPensionTrans.Sub(totalIRSExclusionTrans)
+	if taxablePensionTrans.IsNegative() {
+		taxablePensionTrans = decimal.Zero
+	}
+
 	taxableIncome := domain.TaxableIncome{
 		Salary:             totalWorkingIncome,
-		FERSPension:        ctx.totalPensionWithSurvivor(),
+		FERSPension:        taxablePensionTrans,
 		TSPWithdrawalsTrad: ctx.totalTSPWithdrawals(),
 		TaxableSSBenefits:  taxableSS,
 		OtherTaxableIncome: decimal.Zero,
@@ -953,9 +974,18 @@ func (ce *CalculationEngine) calculateRetirementYearTaxes(ctx taxComputationCont
 		taxableSS = ce.TaxCalc.SSTaxCalc.CalculateTaxableSocialSecurity(totalSS, provisional)
 	}
 
+	// Apply IRS Simplified Method exclusion: reduce taxable pension by the annual
+	// tax-free exclusion for each person (IRS Pub 721 / 26 USC § 72).
+	grossPension := ctx.totalPensionWithSurvivor()
+	totalIRSExclusion := ctx.irsExclusionA.Add(ctx.irsExclusionB)
+	taxablePension := grossPension.Sub(totalIRSExclusion)
+	if taxablePension.IsNegative() {
+		taxablePension = decimal.Zero
+	}
+
 	taxableIncome := domain.TaxableIncome{
 		Salary:             decimal.Zero,
-		FERSPension:        ctx.totalPensionWithSurvivor(),
+		FERSPension:        taxablePension,
 		TSPWithdrawalsTrad: ctx.totalTSPWithdrawals(),
 		TaxableSSBenefits:  taxableSS,
 		OtherTaxableIncome: decimal.Zero,
