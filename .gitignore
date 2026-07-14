@@ -54,11 +54,7 @@ internal/output/retirement_report_*.json
 *.dylib
 
 # Local settings and logs
-# Ignore everything inside .claude/ EXCEPT the project-scoped memory dir,
-# which IS source-controlled — it's the cross-machine canonical state for
-# in-flight features and project conventions.
 .claude/*
-!.claude/memory/
 test_full*.log
 test_output.txt
 
