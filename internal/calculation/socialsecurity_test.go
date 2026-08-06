@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/rpgo/retirement-calculator/internal/domain"
+	"github.com/rpgo/retirement-calculator/pkg/dateutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 )
@@ -105,6 +106,64 @@ func TestSocialSecurityOfficialExamples(t *testing.T) {
 				tt.expectedBenefit.StringFixed(2), benefit.StringFixed(2), difference.StringFixed(2))
 		})
 	}
+}
+
+// TestFullRetirementAge_JanuaryFirstBoundaryReachesBenefitCalculation proves
+// the January 1st boundary (rgehrsitz/ferscalc-web#404, ported here) is not
+// just a dateutil.FullRetirementAge unit-level fact -- it changes the
+// downstream dollar benefit a claimant actually receives. A January 1, 1960
+// claim at the nominal age 67 is TWO MONTHS DELAYED past the true FRA
+// (66y10m, 802 months), not exactly at FRA (67y0m, 804 months); a January
+// 2, 1960 claim at the SAME nominal age is exactly at its own FRA with no
+// delayed credit. The two must differ.
+func TestFullRetirementAge_JanuaryFirstBoundaryReachesBenefitCalculation(t *testing.T) {
+	benefitAtFRA := decimal.NewFromInt(2000)
+
+	// NewSocialSecurityCalculator only takes a birth YEAR (see its own
+	// January 2nd placeholder comment) -- bypass it here via the exported
+	// struct fields directly, since this test needs to inject the exact
+	// dates that only dateutil.FullRetirementAge itself distinguishes.
+	jan1 := &SocialSecurityCalculator{
+		FullRetirementAge: dateutil.FullRetirementAge(time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)),
+		BenefitAtFRA:      benefitAtFRA,
+	}
+	jan1Benefit := jan1.CalculateBenefitAtAge(67)
+
+	jan2 := &SocialSecurityCalculator{
+		FullRetirementAge: dateutil.FullRetirementAge(time.Date(1960, 1, 2, 0, 0, 0, 0, time.UTC)),
+		BenefitAtFRA:      benefitAtFRA,
+	}
+	jan2Benefit := jan2.CalculateBenefitAtAge(67)
+
+	assert.True(t, jan2Benefit.Equal(benefitAtFRA),
+		"January 2, 1960 claiming at 67 is exactly at FRA, no delayed credit: expected %s, got %s",
+		benefitAtFRA.StringFixed(2), jan2Benefit.StringFixed(2))
+	assert.True(t, jan1Benefit.GreaterThan(jan2Benefit),
+		"January 1, 1960 claiming at 67 is two months delayed past its true FRA (66y10m), so it must exceed the January 2 claim: got %s vs %s",
+		jan1Benefit.StringFixed(2), jan2Benefit.StringFixed(2))
+
+	// 2 months x 2/3% delayed credit = 2000 x (1 + 2 x 2/3/100)
+	expectedJan1 := benefitAtFRA.Mul(decimal.NewFromFloat(1 + (2*2)/3.0/100))
+	diff := jan1Benefit.Sub(expectedJan1).Abs()
+	assert.True(t, diff.LessThan(decimal.NewFromFloat(0.01)),
+		"expected %s, got %s (diff %s)", expectedJan1.StringFixed(4), jan1Benefit.StringFixed(4), diff.StringFixed(4))
+}
+
+// TestNewSocialSecurityCalculator_YearOnlyPreservesTransitionYearFRA proves
+// the January 2nd placeholder in NewSocialSecurityCalculator (which only
+// receives a birth YEAR, not an exact date) correctly reproduces the FRA
+// that applies to the WHOLE REST of a transition year, not the single-day
+// boundary bracket a January 1st placeholder would now give since
+// dateutil.FullRetirementAge became exact-date-aware. 1959 is a transition
+// year (66y10m applies from 1/2/1959 through 1/1/1960); someone who only
+// entered "born in 1959" should get that bracket, matching what this exact
+// switch case gave before the exact-date fix -- NOT the 66y8m of the
+// adjacent bracket a naive January 1st placeholder would incorrectly give
+// to everyone in this year except those literally born January 1st.
+func TestNewSocialSecurityCalculator_YearOnlyPreservesTransitionYearFRA(t *testing.T) {
+	calc := NewSocialSecurityCalculator(1959, decimal.NewFromInt(2000))
+	assert.Equal(t, 66, calc.FullRetirementAge.Years)
+	assert.Equal(t, 10, calc.FullRetirementAge.Months)
 }
 
 // TestSocialSecurityEarlyRetirementReduction tests the early retirement reduction formula

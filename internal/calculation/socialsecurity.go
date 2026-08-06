@@ -15,11 +15,19 @@ type SocialSecurityCalculator struct {
 	BenefitAtFRA      decimal.Decimal
 }
 
-// NewSocialSecurityCalculator creates a new Social Security calculator
+// NewSocialSecurityCalculator creates a new Social Security calculator.
+//
+// This type only carries a birth YEAR, not an exact date, so it constructs a
+// synthetic date to feed dateutil.FullRetirementAge. Uses January 2nd, not
+// January 1st: FullRetirementAge's brackets run "1/2/Y - 1/1/(Y+1)", so
+// January 2nd is the first day of the bracket that applies to the whole
+// rest of birth year Y -- January 1st itself would fall in the PRIOR
+// bracket (rgehrsitz/ferscalc-web#404) and understate FRA for anyone in a
+// transition year (1938-1942, 1955-1959) whose exact day isn't known.
 func NewSocialSecurityCalculator(birthYear int, benefitAtFRA decimal.Decimal) *SocialSecurityCalculator {
 	return &SocialSecurityCalculator{
 		BirthYear:         birthYear,
-		FullRetirementAge: dateutil.FullRetirementAge(time.Date(birthYear, 1, 1, 0, 0, 0, 0, time.UTC)),
+		FullRetirementAge: dateutil.FullRetirementAge(time.Date(birthYear, 1, 2, 0, 0, 0, 0, time.UTC)),
 		BenefitAtFRA:      benefitAtFRA,
 	}
 }
