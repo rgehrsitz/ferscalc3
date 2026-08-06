@@ -173,10 +173,20 @@ func TestFullRetirementAge(t *testing.T) {
 			description: "FRA 66 for 1943-1954 births",
 		},
 		{
+			// NOT January 1st: per the exact-date table, 1/1/1959 falls in
+			// the PRIOR bracket (66y8m, "1/2/1958 - 1/1/1959"), not this
+			// one. This fixture's intent is the "1/2/1959 - 1/1/1960"
+			// bracket (66y10m), so it uses a date unambiguously inside it.
 			name:        "Born 1959 - transition year",
-			birthDate:   time.Date(1959, 1, 1, 0, 0, 0, 0, time.UTC),
+			birthDate:   time.Date(1959, 6, 15, 0, 0, 0, 0, time.UTC),
 			expectedFRA: RetirementAge{Years: 66, Months: 10},
 			description: "FRA during transition period",
+		},
+		{
+			name:        "A January 1st birthday falls in the PRIOR bracket, per 404.409(a)'s own exact-date table",
+			birthDate:   time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC),
+			expectedFRA: RetirementAge{Years: 66, Months: 10},
+			description: "1/1/1960 is still the last day of the 1/2/1959-1/1/1960 bracket, not the first day of 1/2/1960-and-later",
 		},
 		{
 			name:        "Born 1960 - Person A",
@@ -197,6 +207,43 @@ func TestFullRetirementAge(t *testing.T) {
 			fra := FullRetirementAge(tt.birthDate)
 			assert.Equal(t, tt.expectedFRA, fra,
 				"%s: Expected FRA %+v, got %+v", tt.description, tt.expectedFRA, fra)
+		})
+	}
+}
+
+// TestFullRetirementAge_Boundaries covers both sides of every regulatory
+// boundary in 20 CFR 404.409(a) -- a typo in any one of the twelve
+// hand-transcribed thresholds in FullRetirementAge would otherwise slip
+// past TestFullRetirementAge above, which only directly exercises a
+// handful of them.
+func TestFullRetirementAge_Boundaries(t *testing.T) {
+	boundaries := []struct {
+		year    int
+		month   time.Month
+		day     int
+		through RetirementAge
+		after   RetirementAge
+	}{
+		{1938, time.January, 1, RetirementAge{Years: 65}, RetirementAge{Years: 65, Months: 2}},
+		{1939, time.January, 1, RetirementAge{Years: 65, Months: 2}, RetirementAge{Years: 65, Months: 4}},
+		{1940, time.January, 1, RetirementAge{Years: 65, Months: 4}, RetirementAge{Years: 65, Months: 6}},
+		{1941, time.January, 1, RetirementAge{Years: 65, Months: 6}, RetirementAge{Years: 65, Months: 8}},
+		{1942, time.January, 1, RetirementAge{Years: 65, Months: 8}, RetirementAge{Years: 65, Months: 10}},
+		{1943, time.January, 1, RetirementAge{Years: 65, Months: 10}, RetirementAge{Years: 66}},
+		{1955, time.January, 1, RetirementAge{Years: 66}, RetirementAge{Years: 66, Months: 2}},
+		{1956, time.January, 1, RetirementAge{Years: 66, Months: 2}, RetirementAge{Years: 66, Months: 4}},
+		{1957, time.January, 1, RetirementAge{Years: 66, Months: 4}, RetirementAge{Years: 66, Months: 6}},
+		{1958, time.January, 1, RetirementAge{Years: 66, Months: 6}, RetirementAge{Years: 66, Months: 8}},
+		{1959, time.January, 1, RetirementAge{Years: 66, Months: 8}, RetirementAge{Years: 66, Months: 10}},
+		{1960, time.January, 1, RetirementAge{Years: 66, Months: 10}, RetirementAge{Years: 67}},
+	}
+
+	for _, b := range boundaries {
+		t.Run(fmt.Sprintf("boundary %04d-%02d-%02d", b.year, b.month, b.day), func(t *testing.T) {
+			through := time.Date(b.year, b.month, b.day, 0, 0, 0, 0, time.UTC)
+			after := time.Date(b.year, b.month, b.day+1, 0, 0, 0, 0, time.UTC)
+			assert.Equal(t, b.through, FullRetirementAge(through), "on the boundary date")
+			assert.Equal(t, b.after, FullRetirementAge(after), "the day after")
 		})
 	}
 }

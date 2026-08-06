@@ -50,36 +50,54 @@ func YearsOfServiceDecimal(hireDate, atDate time.Time) float64 {
 	return years
 }
 
-// FullRetirementAge calculates the Social Security Full Retirement Age based on birth year.
+// FullRetirementAge calculates the Social Security Full Retirement Age for
+// old-age, wife's, or husband's benefits, per 20 CFR 404.409(a)'s own
+// chart -- exact calendar-date brackets ("1/2/38 - 1/1/39"), not birth-YEAR
+// brackets. A January 1st birthday genuinely falls in the PRIOR bracket
+// (e.g. 1/1/1939 is still "65 + 2", not "65 + 4") per 404.102's own
+// age-attainment rule ("You reach a particular age on the day before your
+// birthday") -- this table's date boundaries already express that, so no
+// separate day-before adjustment is needed at the call site.
+//
+// Any birth date OTHER than January 1st gives the identical answer this
+// function always gave (a plain birthDate.Year() lookup) -- the two only
+// diverge on a January 1st birthday, previously placed one bracket too
+// high. Ported from the TypeScript engine's identical fix
+// (rgehrsitz/ferscalc-web#404), sourced from the same regulation.
+//
+// Compares calendar-date components (Year/Month/Day), not the time.Time
+// instant, matching this file's own Age() convention above -- safe
+// regardless of birthDate's Location, since all three components are read
+// from that single value rather than compared across two different Locations.
 func FullRetirementAge(birthDate time.Time) RetirementAge {
-	birthYear := birthDate.Year()
+	dob := birthDate.Year()*10000 + int(birthDate.Month())*100 + birthDate.Day()
 
 	switch {
-	case birthYear <= 1937:
+	case dob <= 19380101:
 		return RetirementAge{Years: 65}
-	case birthYear == 1938:
+	case dob <= 19390101:
 		return RetirementAge{Years: 65, Months: 2}
-	case birthYear == 1939:
+	case dob <= 19400101:
 		return RetirementAge{Years: 65, Months: 4}
-	case birthYear == 1940:
+	case dob <= 19410101:
 		return RetirementAge{Years: 65, Months: 6}
-	case birthYear == 1941:
+	case dob <= 19420101:
 		return RetirementAge{Years: 65, Months: 8}
-	case birthYear == 1942:
+	case dob <= 19430101:
 		return RetirementAge{Years: 65, Months: 10}
-	case birthYear >= 1943 && birthYear <= 1954:
+	case dob <= 19550101:
 		return RetirementAge{Years: 66}
-	case birthYear == 1955:
+	case dob <= 19560101:
 		return RetirementAge{Years: 66, Months: 2}
-	case birthYear == 1956:
+	case dob <= 19570101:
 		return RetirementAge{Years: 66, Months: 4}
-	case birthYear == 1957:
+	case dob <= 19580101:
 		return RetirementAge{Years: 66, Months: 6}
-	case birthYear == 1958:
+	case dob <= 19590101:
 		return RetirementAge{Years: 66, Months: 8}
-	case birthYear == 1959:
+	case dob <= 19600101:
 		return RetirementAge{Years: 66, Months: 10}
-	default: // 1960 and later
+	default: // 1/2/1960 and later
 		return RetirementAge{Years: 67}
 	}
 }
